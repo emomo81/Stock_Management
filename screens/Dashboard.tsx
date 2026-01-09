@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { View } from '../App';
+import type { View } from '../types';
 
 const data = [
   { name: 'Sep 15', value: 100, forecast: 100, critical: 50 },
@@ -43,7 +43,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
             </h1>
             <p className="text-slate-400">Predictive inventory analysis for SKU-1029 (Wireless Headphones)</p>
           </div>
-          <button 
+          <button
             onClick={() => setView('dashboard')}
             className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white"
           >
@@ -81,15 +81,15 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
             </div>
 
             <div className="mt-auto space-y-3">
-               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                  <h4 className="text-primary font-bold text-sm mb-1 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">lightbulb</span> AI Recommendation
-                  </h4>
-                  <p className="text-xs text-slate-300">Based on +15% velocity, reorder 450 units immediately to maintain 98% service level.</p>
-               </div>
-               <button className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition shadow-lg shadow-primary/20">
-                 Apply to Inventory
-               </button>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h4 className="text-primary font-bold text-sm mb-1 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">lightbulb</span> AI Recommendation
+                </h4>
+                <p className="text-xs text-slate-300">Based on +15% velocity, reorder 450 units immediately to maintain 98% service level.</p>
+              </div>
+              <button className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition shadow-lg shadow-primary/20">
+                Apply to Inventory
+              </button>
             </div>
           </div>
 
@@ -119,24 +119,24 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
               <h3 className="text-lg font-semibold text-white mb-6">Inventory Trajectory</h3>
               <div className="flex-1 w-full min-h-[350px] min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data}>
+                  <AreaChart data={data}>
                     <defs>
-                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1985f0" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#1985f0" stopOpacity={0}/>
-                        </linearGradient>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#1985f0" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#1985f0" stopOpacity={0} />
+                      </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                        contentStyle={{ backgroundColor: '#1b2127', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1b2127', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                      itemStyle={{ color: '#fff' }}
                     />
                     <Area type="monotone" dataKey="value" stroke="#1985f0" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                     <Area type="monotone" dataKey="forecast" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} fill="transparent" />
                     <Area type="monotone" dataKey="critical" stroke="#ef4444" strokeWidth={1} strokeDasharray="3 3" fill="transparent" />
-                    </AreaChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -150,21 +150,21 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
     <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col bg-[#101922]">
       {/* Alert Banner */}
       {showAlert && !showForecasting && (
-         <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start justify-between animate-in slide-in-from-top-2 fade-in duration-500">
-            <div className="flex gap-4">
-                <div className="size-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
-                     <span className="material-symbols-outlined text-red-500">warning</span>
-                </div>
-                <div>
-                    <h3 className="text-white font-bold text-sm">Critical Stock Alert</h3>
-                    <p className="text-slate-400 text-xs mt-1">3 items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
-                     <div className="flex gap-2 mt-3">
-                        <button onClick={() => setView('inventory')} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
-                        <button onClick={() => setShowAlert(false)} className="text-slate-400 hover:text-white text-xs font-medium px-3 py-1.5">Dismiss</button>
-                     </div>
-                </div>
+        <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start justify-between animate-in slide-in-from-top-2 fade-in duration-500">
+          <div className="flex gap-4">
+            <div className="size-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-red-500">warning</span>
             </div>
-            <button onClick={() => setShowAlert(false)} className="text-slate-500 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+            <div>
+              <h3 className="text-white font-bold text-sm">Critical Stock Alert</h3>
+              <p className="text-slate-400 text-xs mt-1">3 items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => setView('inventory')} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
+                <button onClick={() => setShowAlert(false)} className="text-slate-400 hover:text-white text-xs font-medium px-3 py-1.5">Dismiss</button>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => setShowAlert(false)} className="text-slate-500 hover:text-white"><span className="material-symbols-outlined">close</span></button>
         </div>
       )}
 
@@ -234,9 +234,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                   <span className={`text-xs font-bold text-${item.color}-400 bg-${item.color}-400/10 px-2 py-0.5 rounded flex items-center gap-1`}>
-                     <span className="material-symbols-outlined text-[10px]">trending_up</span> {item.trend}
-                   </span>
+                  <span className={`text-xs font-bold text-${item.color}-400 bg-${item.color}-400/10 px-2 py-0.5 rounded flex items-center gap-1`}>
+                    <span className="material-symbols-outlined text-[10px]">trending_up</span> {item.trend}
+                  </span>
                 </div>
               </div>
             ))}
@@ -253,7 +253,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
             <span className="text-xs text-white bg-rose-500/20 px-2 py-1 rounded border border-rose-500/30">3 Items</span>
           </div>
           <div className="flex-1 overflow-auto p-2">
-             {[
+            {[
               { name: 'Legacy Printer A4', stock: 45, value: '$4,500', days: '120 Days' },
               { name: 'Router v1.0', stock: 22, value: '$1,980', days: '105 Days' },
               { name: 'VGA Cables', stock: 150, value: '$750', days: '98 Days' },

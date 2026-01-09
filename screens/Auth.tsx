@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from '../App';
+import type { View } from '../types';
 
 interface AuthProps {
   currentView: 'login' | 'register';
@@ -30,8 +30,8 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, setIsAuth }) => {
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase text-slate-400 ml-1">Email Address</label>
               <div className="relative group">
-                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">mail</span>
-                 <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="user@company.com" type="email" />
+                <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">mail</span>
+                <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="user@company.com" type="email" />
               </div>
             </div>
 
@@ -41,9 +41,9 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, setIsAuth }) => {
                 <a href="#" className="text-xs text-primary hover:underline">Forgot?</a>
               </div>
               <div className="relative group">
-                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">lock</span>
-                 <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="••••••••" type="password" />
-                 <span className="material-symbols-outlined absolute right-4 top-3.5 text-[#9cabba] cursor-pointer hover:text-white">visibility</span>
+                <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">lock</span>
+                <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="••••••••" type="password" />
+                <span className="material-symbols-outlined absolute right-4 top-3.5 text-[#9cabba] cursor-pointer hover:text-white">visibility</span>
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { View, UserRole } from '../App';
+import type { View, UserRole } from '../types';
 
 interface SidebarProps {
   currentView: View;
@@ -15,11 +15,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
     return (
       <button
         onClick={() => setView(view)}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all group relative ${
-          isActive 
-            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(25,133,240,0.15)]' 
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all group relative ${isActive
+            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(25,133,240,0.15)]'
             : 'text-slate-400 hover:text-white hover:bg-white/5'
-        }`}
+          }`}
       >
         <span className={`material-symbols-outlined ${isActive ? 'fill-1' : ''}`}>{icon}</span>
         <span className={`text-sm font-medium ${isActive ? 'font-bold' : ''}`}>{label}</span>
@@ -33,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
   };
 
   return (
-    <aside 
+    <aside
       className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-[#101922]/95 backdrop-blur-xl border-r border-white/5 
         transition-transform duration-300 ease-in-out flex flex-col
@@ -51,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
             <p className="text-slate-400 text-xs font-medium">Inventory OS</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={onClose}
           className="md:hidden text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/5"
         >
@@ -83,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
       </nav>
 
       <div className="p-4 border-t border-white/5">
-        <button 
+        <button
           onClick={() => setView('scanner')}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors w-full"
         >
