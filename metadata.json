@@ -1,0 +1,7 @@
+{
+  "name": "AIMS Inventory OS",
+  "description": "A high-fidelity, dark-mode inventory management system with AI forecasting, RBAC, and analytics dashboards.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
