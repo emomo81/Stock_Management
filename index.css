@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-background text-white antialiased;
+    }
+}
+
+@layer components {
+    .glass-panel {
+        @apply bg-surface/60 backdrop-blur-md border border-white/10;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600;
+}
+
+/* Print Styles */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #invoice-modal,
+    #invoice-modal * {
+        visibility: visible;
+    }
+
+    #invoice-modal {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        color: black;
+        padding: 40px;
+        margin: 0;
+        z-index: 9999;
+        overflow: visible;
+    }
+
+    .print\:hidden {
+        display: none !important;
+    }
+
+    #invoice-modal h1,
+    #invoice-modal h3,
+    #invoice-modal p,
+    #invoice-modal span,
+    #invoice-modal div,
+    #invoice-modal td,
+    #invoice-modal th {
+        color: #0f172a !important;
+    }
+
+    #invoice-modal .text-slate-500 {
+        color: #64748b !important;
+    }
+
+    #invoice-modal .bg-slate-100 {
+        background-color: #f1f5f9 !important;
+    }
+}
