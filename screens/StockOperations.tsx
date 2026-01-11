@@ -27,6 +27,13 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     const [showStockSuggestions, setShowStockSuggestions] = useState(false);
     const [showVendorSuggestions, setShowVendorSuggestions] = useState(false); // Vendor Combobox State
 
+    // Audit State
+    const [auditSearch, setAuditSearch] = useState('');
+    const [auditSelectedItem, setAuditSelectedItem] = useState<any>(null);
+    const [auditPhysicalCount, setAuditPhysicalCount] = useState('');
+    const [auditReason, setAuditReason] = useState('Data Entry Error');
+    const [showAuditSuccess, setShowAuditSuccess] = useState(false);
+
     React.useEffect(() => {
         const fetchData = async () => {
             try {
@@ -107,6 +114,63 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
 
         } catch (error) {
             console.error('Failed to update stock:', error);
+        }
+    };
+
+    const filteredAuditItems = items.filter(item =>
+        item.name.toLowerCase().includes(auditSearch.toLowerCase()) ||
+        item.sku.toLowerCase().includes(auditSearch.toLowerCase())
+    );
+
+    const handleAuditConfirm = async () => {
+        if (!auditSelectedItem || !auditPhysicalCount) return;
+
+        try {
+            const physical = parseInt(auditPhysicalCount);
+            const current = auditSelectedItem.stock || 0;
+            const diff = physical - current;
+
+            // Update Stock
+            await fetch(`http://localhost:5001/api/inventory/${auditSelectedItem.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...auditSelectedItem,
+                    stock: physical,
+                    attributes: auditSelectedItem.attributes
+                })
+            });
+
+            // Create Transaction Record (Audit Adjustment)
+            if (diff !== 0) {
+                await fetch('http://localhost:5001/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: diff > 0 ? 'IN' : 'OUT',
+                        itemId: auditSelectedItem.id,
+                        qty: Math.abs(diff),
+                        price: 0, // Audit adjustments usually don't have a direct "price" in this context, or use avg cost
+                        vendor: `AUDIT: ${auditReason}`
+                    })
+                });
+            }
+
+            // Success & Reset
+            setShowAuditSuccess(true);
+            setAuditSelectedItem(null);
+            setAuditPhysicalCount('');
+            setAuditSearch('');
+
+            // Refresh Data
+            const res = await fetch('http://localhost:5001/api/inventory');
+            const data = await res.json();
+            setItems(data);
+
+            setTimeout(() => setShowAuditSuccess(false), 3000);
+
+        } catch (error) {
+            console.error('Failed to submit audit:', error);
         }
     };
 
@@ -364,106 +428,171 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     }
 
     if (view === 'audit') {
+        const sysStock = auditSelectedItem?.stock || 0;
+        const physStock = parseInt(auditPhysicalCount) || 0;
+        const discrepancy = physStock - sysStock;
+
         return (
             <div className="flex flex-col lg:flex-row h-full overflow-hidden">
                 {/* Left List */}
                 <div className="w-full lg:w-2/3 flex flex-col border-b lg:border-b-0 lg:border-r border-white/10 bg-[#101922]/90 h-1/2 lg:h-full">
                     <div className="p-4 lg:p-6 border-b border-white/10">
-                        <div className="flex justify-between items-center mb-2">
-                            <h1 className="text-xl lg:text-2xl font-bold text-white">Zone 3 Audit</h1>
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-xl lg:text-2xl font-bold text-white">Stocktake / Audit</h1>
                             <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
                                 <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
                                 <span className="text-xs text-yellow-500 font-bold uppercase">Audit Active</span>
                             </div>
                         </div>
-                        <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
-                            <div className="bg-primary h-full rounded-full" style={{ width: '12%' }}></div>
+
+                        <div className="relative">
+                            <input
+                                value={auditSearch}
+                                onChange={(e) => {
+                                    setAuditSearch(e.target.value);
+                                    setAuditSelectedItem(null);
+                                }}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg py-2 px-4 pl-10 text-white focus:border-primary outline-none"
+                                placeholder="Scan or search item to count..."
+                            />
+                            <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-500">search</span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 text-right">12/450 items counted</p>
                     </div>
 
                     <div className="flex-1 overflow-auto p-4 space-y-2">
-                        <div className="bg-primary/10 border-l-4 border-l-primary p-4 rounded-r-lg cursor-pointer">
-                            <div className="flex justify-between items-start">
-                                <div className="flex gap-3">
-                                    <div className="size-10 bg-slate-800 rounded flex items-center justify-center text-slate-500"><span className="material-symbols-outlined">laptop_mac</span></div>
-                                    <div>
-                                        <h4 className="text-white font-bold">MacBook Pro 16"</h4>
-                                        <p className="text-xs text-primary font-mono">SKU: MB-PRO-16-SPACE</p>
+                        {auditSearch ? (
+                            filteredAuditItems.length > 0 ? (
+                                filteredAuditItems.map(item => (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => {
+                                            setAuditSelectedItem(item);
+                                            setAuditPhysicalCount(item.stock?.toString() || '0');
+                                        }}
+                                        className={`p-4 rounded-lg cursor-pointer border transition-all flex justify-between items-center ${auditSelectedItem?.id === item.id
+                                                ? 'bg-primary/10 border-primary'
+                                                : 'hover:bg-white/5 border-transparent hover:border-white/5'
+                                            }`}
+                                    >
+                                        <div className="flex gap-3">
+                                            <div className="size-10 bg-slate-800 rounded flex items-center justify-center text-slate-500">
+                                                <span className="material-symbols-outlined">inventory_2</span>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-white font-medium">{item.name}</h4>
+                                                <p className="text-xs text-slate-500 font-mono">{item.sku}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-slate-400 text-xs">System Qty</p>
+                                            <p className="text-white font-mono font-bold">{item.stock}</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/20">Reviewing</span>
+                                ))
+                            ) : (
+                                <div className="text-center p-8 text-slate-500">No items found matching "{auditSearch}"</div>
+                            )
+                        ) : (
+                            <div className="text-center p-8 text-slate-500 flex flex-col items-center gap-2">
+                                <span className="material-symbols-outlined text-4xl opacity-50">qr_code_scanner</span>
+                                <p>Search for an item to begin audit</p>
                             </div>
-                        </div>
-
-                        <div className="hover:bg-white/5 p-4 rounded-lg cursor-pointer border border-transparent hover:border-white/5 transition-all">
-                            <div className="flex justify-between items-start">
-                                <div className="flex gap-3">
-                                    <div className="size-10 bg-slate-800 rounded flex items-center justify-center text-slate-500"><span className="material-symbols-outlined">mouse</span></div>
-                                    <div>
-                                        <h4 className="text-slate-200 font-medium">Ergo Mouse</h4>
-                                        <p className="text-xs text-slate-500 font-mono">SKU: EM-299</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-slate-400 text-xs">System: 120</p>
-                                    <p className="text-red-400 font-bold font-mono">118 (-2)</p>
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Right Detail Panel */}
                 <div className="w-full lg:w-1/3 bg-[#0f172a] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col relative z-20 shadow-2xl h-1/2 lg:h-full overflow-y-auto">
-                    {/* AI Warning Banner */}
-                    <div className="bg-blue-900/30 border-b border-blue-500/20 p-4 flex gap-3 sticky top-0 backdrop-blur-md z-10">
-                        <span className="material-symbols-outlined text-blue-400 text-sm mt-0.5">auto_awesome</span>
-                        <div>
-                            <h4 className="text-blue-100 text-xs font-bold">AI Insight Detected</h4>
-                            <p className="text-blue-200/70 text-[10px] leading-relaxed">High discrepancy rates detected in Aisle 4. Check returns bin.</p>
+                    {/* Success Message */}
+                    {showAuditSuccess && (
+                        <div className="absolute top-0 left-0 right-0 z-30 bg-emerald-500 text-white p-3 text-center text-sm font-bold flex items-center justify-center gap-2 animate-in slide-in-from-top">
+                            <span className="material-symbols-outlined text-sm">check_circle</span> Adjustment Saved
                         </div>
-                    </div>
+                    )}
 
-                    <div className="p-6 flex-1 flex flex-col gap-6">
-                        <div className="aspect-video bg-slate-800 rounded-lg w-full relative overflow-hidden group shrink-0">
-                            <div className="absolute inset-0 flex items-center justify-center text-slate-600">Product Image</div>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/80 p-2 text-center text-xs text-white">MacBook Pro 16"</div>
-                        </div>
-
-                        <div className="glass-panel p-4 rounded-xl space-y-4">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quantity Verification</h3>
-                            <div className="flex items-center justify-between">
-                                <div className="text-center">
-                                    <p className="text-xs text-slate-500">System</p>
-                                    <p className="text-2xl font-mono font-bold text-slate-300">50</p>
+                    {auditSelectedItem ? (
+                        <>
+                            <div className="p-6 flex-1 flex flex-col gap-6">
+                                <div className="aspect-video bg-slate-800 rounded-lg w-full relative overflow-hidden group shrink-0">
+                                    <div className="absolute inset-0 flex items-center justify-center text-slate-600">
+                                        {auditSelectedItem.img === 'box' ? (
+                                            <span className="material-symbols-outlined text-4xl">inventory_2</span>
+                                        ) : (
+                                            <img src="https://placehold.co/400x300/1e293b/475569?text=Product" className="w-full h-full object-cover opacity-50" />
+                                        )}
+                                    </div>
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/80 p-2 text-center text-xs text-white">{auditSelectedItem.name}</div>
                                 </div>
-                                <span className="material-symbols-outlined text-slate-600">arrow_right_alt</span>
-                                <div className="text-center">
-                                    <p className="text-xs text-slate-500">Physical</p>
-                                    <input className="bg-slate-800 text-white text-2xl font-mono font-bold w-20 text-center rounded p-1 border border-slate-600 focus:border-primary outline-none" defaultValue="48" />
+
+                                <div className="glass-panel p-4 rounded-xl space-y-4">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quantity Verification</h3>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-center">
+                                            <p className="text-xs text-slate-500">System</p>
+                                            <p className="text-2xl font-mono font-bold text-slate-300">{sysStock}</p>
+                                        </div>
+                                        <span className="material-symbols-outlined text-slate-600">arrow_right_alt</span>
+                                        <div className="text-center">
+                                            <p className="text-xs text-slate-500">Physical</p>
+                                            <input
+                                                type="number"
+                                                value={auditPhysicalCount}
+                                                onChange={(e) => setAuditPhysicalCount(e.target.value)}
+                                                className="bg-slate-800 text-white text-2xl font-mono font-bold w-24 text-center rounded p-1 border border-slate-600 focus:border-primary outline-none"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {discrepancy !== 0 ? (
+                                        <div className={`border rounded p-2 flex justify-between items-center text-sm ${discrepancy < 0 ? 'bg-red-500/10 border-red-500/20 text-red-300' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                                            }`}>
+                                            <span className="flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-sm">
+                                                    {discrepancy < 0 ? 'trending_down' : 'trending_up'}
+                                                </span>
+                                                Discrepancy
+                                            </span>
+                                            <span className="font-mono font-bold">{discrepancy > 0 ? '+' : ''}{discrepancy} Units</span>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-800/50 border border-white/5 rounded p-2 text-center text-slate-400 text-sm">
+                                            <span className="material-symbols-outlined text-sm align-middle mr-1">check</span> Counts Match
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                            <div className="bg-red-500/10 border border-red-500/20 rounded p-2 flex justify-between items-center text-red-300 text-sm">
-                                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">trending_down</span> Discrepancy</span>
-                                <span className="font-mono font-bold">-2 Units</span>
-                            </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs text-slate-400">Reason Code</label>
-                            <select className="w-full bg-[#1b2127] border border-white/10 rounded text-sm text-white p-2">
-                                <option>Data Entry Error</option>
-                                <option>Theft / Loss</option>
-                                <option>Damaged</option>
-                            </select>
-                        </div>
-                    </div>
+                                {discrepancy !== 0 && (
+                                    <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                                        <label className="text-xs text-slate-400">Reason Code</label>
+                                        <select
+                                            value={auditReason}
+                                            onChange={(e) => setAuditReason(e.target.value)}
+                                            className="w-full bg-[#1b2127] border border-white/10 rounded text-sm text-white p-2"
+                                        >
+                                            <option>Data Entry Error</option>
+                                            <option>Theft / Loss</option>
+                                            <option>Damaged</option>
+                                            <option>Found Stock</option>
+                                            <option>Vendor Bonus</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
 
-                    <div className="p-4 border-t border-white/10 flex gap-2 bg-[#0f172a] sticky bottom-0">
-                        <button className="flex-1 py-3 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition">Skip</button>
-                        <button className="flex-[2] py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold shadow-lg">Confirm</button>
-                    </div>
+                            <div className="p-4 border-t border-white/10 flex gap-2 bg-[#0f172a] sticky bottom-0">
+                                <button onClick={() => setAuditSelectedItem(null)} className="flex-1 py-3 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition">Cancel</button>
+                                <button onClick={handleAuditConfirm} className="flex-[2] py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold shadow-lg">
+                                    {discrepancy === 0 ? 'Confirm Match' : 'Adjust Stock'}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 text-center">
+                            <span className="material-symbols-outlined text-6xl mb-4 opacity-20">fact_check</span>
+                            <p>Select an item from the list<br />to verify counts.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         )
