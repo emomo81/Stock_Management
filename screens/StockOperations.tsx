@@ -15,6 +15,74 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     ]);
     const [isAddingItem, setIsAddingItem] = useState(false);
 
+    // Stock In State
+    const [items, setItems] = useState<any[]>([]);
+    const [stockInSearch, setStockInSearch] = useState('');
+    const [selectedStockItem, setSelectedStockItem] = useState<any>(null);
+    const [stockInQty, setStockInQty] = useState('');
+    const [stockInCost, setStockInCost] = useState('');
+    const [stockInVendor, setStockInVendor] = useState('TechSupplies Global');
+    const [stockInInvoice, setStockInInvoice] = useState('');
+    const [showStockInSuccess, setShowStockInSuccess] = useState(false);
+    const [showStockSuggestions, setShowStockSuggestions] = useState(false);
+
+    React.useEffect(() => {
+        const fetchItems = async () => {
+            try {
+                const res = await fetch('http://localhost:5001/api/inventory');
+                const data = await res.json();
+                setItems(data);
+            } catch (error) {
+                console.error('Failed to fetch items:', error);
+            }
+        };
+        fetchItems();
+    }, []);
+
+    const filteredStockItems = items.filter(item =>
+        item.name.toLowerCase().includes(stockInSearch.toLowerCase()) ||
+        item.sku.toLowerCase().includes(stockInSearch.toLowerCase())
+    ).slice(0, 5);
+
+    const handleStockIn = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedStockItem || !stockInQty) return;
+
+        try {
+            const currentStock = selectedStockItem.stock || 0;
+            const addedQty = parseInt(stockInQty);
+            const newStock = currentStock + addedQty;
+
+            await fetch(`http://localhost:5001/api/inventory/${selectedStockItem.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...selectedStockItem,
+                    stock: newStock,
+                    // Preserve other fields, ensure attributes are handled if needed by backend (though backend likely handles it)
+                    attributes: selectedStockItem.attributes // Pass back if backend expects it
+                })
+            });
+
+            // Reset and Show Success
+            setShowStockInSuccess(true);
+            setStockInQty('');
+            setStockInCost('');
+            setStockInSearch('');
+            setSelectedStockItem(null);
+
+            // Refresh items
+            const res = await fetch('http://localhost:5001/api/inventory');
+            const data = await res.json();
+            setItems(data);
+
+            setTimeout(() => setShowStockInSuccess(false), 3000);
+
+        } catch (error) {
+            console.error('Failed to update stock:', error);
+        }
+    };
+
     const addItemToCart = () => {
         setCart([...cart, { name: 'Smart Watch Series 5', sku: 'WEAR-SW-005', qty: 1, price: 399.00 }]);
         setIsAddingItem(false);
@@ -388,8 +456,18 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                     </div>
                 </div>
 
+                {showStockInSuccess && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                        <span className="material-symbols-outlined">check_circle</span>
+                        <div>
+                            <p className="font-bold">Stock Updated Successfully</p>
+                            <p className="text-xs opacity-80">Inventory levels have been adjusted.</p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="glass-panel p-4 md:p-8 rounded-xl border border-white/10 shadow-2xl">
-                    <form className="space-y-8">
+                    <form className="space-y-8" onSubmit={handleStockIn}>
                         <div className="space-y-4">
                             <h3 className="text-white font-bold border-b border-white/10 pb-2 flex items-center gap-2"><span className="material-symbols-outlined text-primary">local_shipping</span> Source Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -399,7 +477,12 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Invoice #</label>
-                                    <input className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3" placeholder="INV-2023-001" />
+                                    <input
+                                        value={stockInInvoice}
+                                        onChange={(e) => setStockInInvoice(e.target.value)}
+                                        className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"
+                                        placeholder="INV-2023-001"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Date Received</label>
@@ -413,7 +496,59 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Search Product</label>
-                                    <input className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 pl-10" placeholder="Search..." />
+                                    <div className="relative">
+                                        <input
+                                            value={stockInSearch}
+                                            onChange={(e) => {
+                                                setStockInSearch(e.target.value);
+                                                setShowStockSuggestions(true);
+                                                if (!e.target.value) setSelectedStockItem(null);
+                                            }}
+                                            onFocus={() => setShowStockSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowStockSuggestions(false), 200)}
+                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 pl-10"
+                                            placeholder="Search by name or SKU..."
+                                        />
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                            <span className="material-symbols-outlined text-[18px]">search</span>
+                                        </div>
+
+                                        {/* Suggestions */}
+                                        {showStockSuggestions && stockInSearch && (
+                                            <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                                                {filteredStockItems.length > 0 ? filteredStockItems.map(item => (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        className="w-full text-left p-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
+                                                        onClick={() => {
+                                                            setSelectedStockItem(item);
+                                                            setStockInSearch(item.name);
+                                                            setStockInCost(item.price); // Default to current price
+                                                            setShowStockSuggestions(false);
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <p className="text-white text-sm font-bold">{item.name}</p>
+                                                            <p className="text-xs text-slate-500 font-mono">{item.sku}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-xs text-slate-400">Current Stock</p>
+                                                            <p className="text-white font-mono font-bold">{item.stock}</p>
+                                                        </div>
+                                                    </button>
+                                                )) : (
+                                                    <div className="p-3 text-xs text-slate-500 text-center">No items found</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {selectedStockItem && (
+                                        <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                            Selected: {selectedStockItem.name}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <input className="bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3" placeholder="Batch Lot" />
@@ -427,17 +562,29 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="relative">
                                     <label className="block text-xs text-[#9cabba] mb-1">Qty Received</label>
-                                    <input type="number" className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3" />
+                                    <input
+                                        type="number"
+                                        value={stockInQty}
+                                        onChange={(e) => setStockInQty(e.target.value)}
+                                        className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 focus:border-primary outline-none"
+                                        min="1"
+                                    />
                                     <div className="text-xs text-primary mt-1 flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">info</span> AI Suggests: +500</div>
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Unit Cost</label>
-                                    <input type="number" className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3" placeholder="0.00" />
+                                    <input
+                                        type="number"
+                                        value={stockInCost}
+                                        onChange={(e) => setStockInCost(e.target.value)}
+                                        className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 focus:border-primary outline-none"
+                                        placeholder="0.00"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Total Value</label>
                                     <div className="w-full bg-[#111418] border border-[#283039] text-gray-500 rounded-lg h-10 px-3 flex items-center justify-between cursor-not-allowed">
-                                        <span>$ 0.00</span>
+                                        <span>$ {((parseInt(stockInQty) || 0) * (parseFloat(stockInCost) || 0)).toFixed(2)}</span>
                                         <span className="material-symbols-outlined text-sm">lock</span>
                                     </div>
                                 </div>
@@ -446,7 +593,9 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
 
                         <div className="flex justify-end gap-4 pt-4">
                             <button className="px-6 py-2 text-white hover:bg-white/5 rounded">Cancel</button>
-                            <button className="px-8 py-2 bg-primary text-white font-bold rounded shadow-lg hover:bg-primary/90">Confirm Stock In</button>
+                            <button type="submit" className="px-8 py-2 bg-primary text-white font-bold rounded shadow-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!selectedStockItem || !stockInQty}>
+                                Confirm Stock In
+                            </button>
                         </div>
                     </form>
                 </div>
