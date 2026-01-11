@@ -53,14 +53,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
     const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
 
     // Custom Category State
-    const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const customCategoryInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (isCustomCategory && customCategoryInputRef.current) {
-            customCategoryInputRef.current.focus();
-        }
-    }, [isCustomCategory]);
+    const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
 
     const handleFileSelect = (file: File) => {
         setImportFile(file);
@@ -250,11 +243,9 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
             img: item.img || 'box',
             attributes: item.attributes ? Object.entries(item.attributes).map(([key, value]) => ({
                 id: Math.random().toString(36).substr(2, 9),
-                key,
                 value: value as string
             })) : []
         });
-        setIsCustomCategory(false);
         setShowEngine(true);
     };
 
@@ -274,7 +265,6 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
             img: 'box',
             attributes: []
         });
-        setIsCustomCategory(false);
         setShowEngine(true);
     };
 
@@ -591,47 +581,38 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1.5 block">Category</label>
-                                {isCustomCategory ? (
-                                    <div className="flex gap-2">
-                                        <input
-                                            ref={customCategoryInputRef}
-                                            value={formData.cat}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setFormData(prev => ({ ...prev, cat: val }));
-                                            }}
-                                            className="flex-1 bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
-                                            placeholder="Enter new category"
-                                        />
-                                        <button
-                                            onClick={() => setIsCustomCategory(false)}
-                                            className="p-2.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
-                                            title="Cancel custom category"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">close</span>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <select
+                                <div className="relative">
+                                    <input
                                         value={formData.cat}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (val === '__NEW__') {
-                                                setIsCustomCategory(true);
-                                                setFormData(prev => ({ ...prev, cat: '' }));
-                                            } else {
-                                                setFormData(prev => ({ ...prev, cat: val }));
-                                            }
-                                        }}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, cat: e.target.value }))}
+                                        onFocus={() => setShowCategorySuggestions(true)}
+                                        onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
                                         className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
-                                    >
-                                        {uniqueCategories.map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                        <option disabled>──────────</option>
-                                        <option value="__NEW__">+ Create New Category...</option>
-                                    </select>
-                                )}
+                                        placeholder="Select or type category..."
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                        <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                                    </div>
+
+                                    {/* Suggestions Dropdown */}
+                                    {showCategorySuggestions && (
+                                        <div className="absolute top-full left-0 w-full mt-1 bg-[#1b2127] border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                                            {uniqueCategories.map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault(); // Prevent blur
+                                                        setFormData(prev => ({ ...prev, cat: cat }));
+                                                        setShowCategorySuggestions(false);
+                                                    }}
+                                                >
+                                                    {cat}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
