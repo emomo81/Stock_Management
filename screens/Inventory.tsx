@@ -52,6 +52,9 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
     const [csvData, setCsvData] = useState<any[]>([]);
     const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
 
+    // Custom Category State
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
+
     const handleFileSelect = (file: File) => {
         setImportFile(file);
         const reader = new FileReader();
@@ -226,6 +229,8 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
     }, [items, searchQuery, filterStock, filterCategory]);
 
     const categories = ['all', ...Array.from(new Set(items.map((item: any) => item.cat))) as string[]];
+    // Dynamic categories for the engine dropdown (unique categories from items)
+    const uniqueCategories = Array.from(new Set(items.map((item: any) => item.cat))).filter(Boolean).sort() as string[];
 
     const handleEditClick = (item: any) => {
         setSelectedItem(item);
@@ -577,17 +582,43 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1.5 block">Category</label>
-                                <select
-                                    value={formData.cat}
-                                    onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
-                                    className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
-                                >
-                                    <option>Electronics</option>
-                                    <option>Furniture</option>
-                                    <option>Peripherals</option>
-                                    <option>Wearables</option>
-                                    <option>Accessories</option>
-                                </select>
+                                {isCustomCategory ? (
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={formData.cat}
+                                            onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
+                                            className="flex-1 bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                            placeholder="Enter new category"
+                                            autoFocus
+                                        />
+                                        <button
+                                            onClick={() => setIsCustomCategory(false)}
+                                            className="p-2.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
+                                            title="Cancel custom category"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={formData.cat}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__NEW__') {
+                                                setIsCustomCategory(true);
+                                                setFormData({ ...formData, cat: '' });
+                                            } else {
+                                                setFormData({ ...formData, cat: e.target.value });
+                                            }
+                                        }}
+                                        className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                    >
+                                        {uniqueCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                        <option disabled>──────────</option>
+                                        <option value="__NEW__">+ Create New Category...</option>
+                                    </select>
+                                )}
                             </div>
                         </div>
 
