@@ -36,7 +36,8 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
         stock: 0,
         price: '',
         cat: 'Electronics',
-        img: 'box'
+        img: 'box',
+        attributes: [] as { id: string, key: string, value: string }[]
     });
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -158,14 +159,20 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                 await fetch(`http://localhost:5001/api/inventory/${selectedItem.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({
+                        ...formData,
+                        attributes: formData.attributes.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
+                    })
                 });
             } else {
                 // Create
                 await fetch('http://localhost:5001/api/inventory', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({
+                        ...formData,
+                        attributes: formData.attributes.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
+                    })
                 });
             }
             setShowEngine(false);
@@ -173,6 +180,32 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
         } catch (error) {
             console.error('Failed to save item:', error);
         }
+    };
+
+    const handleAddField = () => {
+        setFormData({
+            ...formData,
+            attributes: [
+                ...formData.attributes,
+                { id: Math.random().toString(36).substr(2, 9), key: 'New Field', value: '' }
+            ]
+        });
+    };
+
+    const handleRemoveField = (id: string) => {
+        setFormData({
+            ...formData,
+            attributes: formData.attributes.filter(attr => attr.id !== id)
+        });
+    };
+
+    const handleAttributeChange = (id: string, field: 'key' | 'value', newValue: string) => {
+        setFormData({
+            ...formData,
+            attributes: formData.attributes.map(attr =>
+                attr.id === id ? { ...attr, [field]: newValue } : attr
+            )
+        });
     };
 
     const filteredItems = useMemo(() => {
@@ -202,7 +235,12 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
             stock: item.stock,
             price: item.price,
             cat: item.cat,
-            img: item.img || 'box'
+            img: item.img || 'box',
+            attributes: item.attributes ? Object.entries(item.attributes).map(([key, value]) => ({
+                id: Math.random().toString(36).substr(2, 9),
+                key,
+                value: value as string
+            })) : []
         });
         setShowEngine(true);
     };
@@ -220,7 +258,8 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
             stock: 0,
             price: '',
             cat: 'Electronics',
-            img: 'box'
+            img: 'box',
+            attributes: []
         });
         setShowEngine(true);
     };
@@ -543,26 +582,32 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center">
                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><span className="size-1.5 rounded-full bg-purple-400"></span> Custom Attributes</p>
-                                <button className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 flex items-center gap-1 hover:bg-primary/20"><span className="material-symbols-outlined text-[12px]">add</span> ADD FIELD</button>
+                                <button onClick={handleAddField} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 flex items-center gap-1 hover:bg-primary/20"><span className="material-symbols-outlined text-[12px]">add</span> ADD FIELD</button>
                             </div>
 
-                            {/* Dynamic Field Example */}
-                            <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 relative group hover:border-white/10">
-                                <label className="text-xs text-primary font-mono mb-1.5 block flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">list</span> category_tag</label>
-                                <select
-                                    value={formData.cat}
-                                    onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
-                                    className="w-full bg-[#101922] border border-white/10 rounded-md p-2 text-sm text-slate-300 outline-none"
-                                >
-                                    <option>Electronics</option>
-                                    <option>Furniture</option>
-                                    <option>Peripherals</option>
-                                    <option>Wearables</option>
-                                </select>
-                                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 flex gap-1">
-                                    <button className="text-slate-500 hover:text-white"><span className="material-symbols-outlined text-[16px]">edit</span></button>
+                            {/* Dynamic Fields */}
+                            {formData.attributes.map((attr) => (
+                                <div key={attr.id} className="bg-white/[0.02] border border-white/5 rounded-lg p-3 relative group hover:border-white/10">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="material-symbols-outlined text-[14px] text-primary">list</span>
+                                        <input
+                                            value={attr.key}
+                                            onChange={(e) => handleAttributeChange(attr.id, 'key', e.target.value)}
+                                            className="bg-transparent text-xs text-primary font-mono outline-none border-b border-transparent focus:border-primary/50 w-full"
+                                            placeholder="Field Name"
+                                        />
+                                    </div>
+                                    <input
+                                        value={attr.value}
+                                        onChange={(e) => handleAttributeChange(attr.id, 'value', e.target.value)}
+                                        className="w-full bg-[#101922] border border-white/10 rounded-md p-2 text-sm text-slate-300 outline-none focus:border-primary"
+                                        placeholder="Value"
+                                    />
+                                    <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 flex gap-1">
+                                        <button onClick={() => handleRemoveField(attr.id)} className="text-slate-500 hover:text-red-400"><span className="material-symbols-outlined text-[16px]">delete</span></button>
+                                    </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
 
                         {/* History Log Section */}
