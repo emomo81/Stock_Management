@@ -247,6 +247,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                 value: value as string
             })) : []
         });
+        setIsCustomCategory(false);
         setShowEngine(true);
     };
 
@@ -266,6 +267,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
             img: 'box',
             attributes: []
         });
+        setIsCustomCategory(false);
         setShowEngine(true);
     };
 
