@@ -16,8 +16,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
       <button
         onClick={() => setView(view)}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all group relative ${isActive
-            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(25,133,240,0.15)]'
-            : 'text-slate-400 hover:text-white hover:bg-white/5'
+          ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(25,133,240,0.15)]'
+          : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
       >
         <span className={`material-symbols-outlined ${isActive ? 'fill-1' : ''}`}>{icon}</span>
@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
         <NavItem view="families" icon="category" label="Product Families" />
         {userRole !== 'staff' && (
           <>
-            <NavItem view="team" icon="group" label="Team" />
+            <NavItem view="users" icon="group" label="Team Members" />
             <NavItem view="export" icon="download" label="Data Export" />
             <NavItem view="barcodes" icon="qr_code_2" label="Barcodes" />
           </>

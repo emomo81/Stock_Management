@@ -24,9 +24,21 @@ const MOCK_HISTORY = [
 ];
 
 const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    // const [showEngine, setShowEngine] = useState(false); // Kept existing state
     const [showEngine, setShowEngine] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
-    const [selectedItem, setSelectedItem] = useState<typeof INITIAL_INVENTORY[0] | null>(null);
+    const [selectedItem, setSelectedItem] = useState<any | null>(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        sku: '',
+        stock: 0,
+        price: '',
+        cat: 'Electronics',
+        img: 'box'
+    });
+
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStock, setFilterStock] = useState('all');
     const [filterCategory, setFilterCategory] = useState('all');
@@ -34,12 +46,137 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
     // Import Modal State
     const [showImport, setShowImport] = useState(false);
     const [importStep, setImportStep] = useState(1);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+    const [csvData, setCsvData] = useState<any[]>([]);
+    const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+
+    const handleFileSelect = (file: File) => {
+        setImportFile(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            if (!text) return;
+
+            const lines = text.split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length === headers.length) {
+                    const row: any = {};
+                    headers.forEach((h, index) => {
+                        row[h] = values[index];
+                    });
+                    data.push(row);
+                }
+            }
+
+            setCsvHeaders(headers);
+            setCsvData(data);
+
+            // Auto mapping override explanation if needed: simplifying for demo
+            const initialMapping: any = {};
+            headers.forEach(h => {
+                if (h.toLowerCase().includes('name')) initialMapping['name'] = h;
+                if (h.toLowerCase().includes('sku')) initialMapping['sku'] = h;
+                if (h.toLowerCase().includes('stock')) initialMapping['stock'] = h;
+                if (h.toLowerCase().includes('price')) initialMapping['price'] = h;
+                if (h.toLowerCase().includes('cat')) initialMapping['cat'] = h;
+            });
+            setColumnMapping(initialMapping);
+
+            setImportStep(2);
+        };
+        reader.readAsText(file);
+    };
+
+    const handleImportSubmit = async () => {
+        try {
+            const payload = csvData.map(row => ({
+                name: row[columnMapping['name'] || ''] || 'Unknown Product',
+                sku: row[columnMapping['sku'] || ''] || `GEN-${Math.floor(Math.random() * 1000)}`,
+                stock: parseInt(row[columnMapping['stock'] || '']) || 0,
+                price: row[columnMapping['price'] || ''] || '$0.00',
+                cat: row[columnMapping['cat'] || ''] || 'Uncategorized',
+                img: 'box'
+            }));
+
+            const res = await fetch('http://localhost:5001/api/inventory/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                setImportStep(3);
+                fetchItems();
+            } else {
+                alert('Import failed');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            alert('Import failed');
+        }
+    };
 
     // QR Modal State
     const [showQR, setShowQR] = useState(false);
 
+    React.useEffect(() => {
+        fetchItems();
+    }, []);
+
+    const fetchItems = async () => {
+        try {
+            const res = await fetch('http://localhost:5001/api/inventory');
+            const data = await res.json();
+            setItems(data);
+            setLoading(false);
+        } catch (error) {
+            console.error('Failed to fetch inventory:', error);
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this item?')) return;
+        try {
+            await fetch(`http://localhost:5001/api/inventory/${id}`, { method: 'DELETE' });
+            fetchItems();
+        } catch (error) {
+            console.error('Failed to delete item:', error);
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            if (selectedItem) {
+                // Update
+                await fetch(`http://localhost:5001/api/inventory/${selectedItem.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+            } else {
+                // Create
+                await fetch('http://localhost:5001/api/inventory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+            }
+            setShowEngine(false);
+            fetchItems();
+        } catch (error) {
+            console.error('Failed to save item:', error);
+        }
+    };
+
     const filteredItems = useMemo(() => {
-        return INITIAL_INVENTORY.filter(item => {
+        return items.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 item.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -53,12 +190,20 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
 
             return matchesSearch && matchesStock && matchesCategory;
         });
-    }, [searchQuery, filterStock, filterCategory]);
+    }, [items, searchQuery, filterStock, filterCategory]);
 
-    const categories = ['all', ...Array.from(new Set(INITIAL_INVENTORY.map(item => item.cat)))];
+    const categories = ['all', ...Array.from(new Set(items.map((item: any) => item.cat))) as string[]];
 
-    const handleEditClick = (item: typeof INITIAL_INVENTORY[0]) => {
+    const handleEditClick = (item: any) => {
         setSelectedItem(item);
+        setFormData({
+            name: item.name,
+            sku: item.sku,
+            stock: item.stock,
+            price: item.price,
+            cat: item.cat,
+            img: item.img || 'box'
+        });
         setShowEngine(true);
     };
 
@@ -69,6 +214,14 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
 
     const handleAddClick = () => {
         setSelectedItem(null);
+        setFormData({
+            name: '',
+            sku: '',
+            stock: 0,
+            price: '',
+            cat: 'Electronics',
+            img: 'box'
+        });
         setShowEngine(true);
     };
 
@@ -308,7 +461,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                                         <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
                                                     </button>
                                                     <button onClick={() => handleEditClick(item)} className="p-2 hover:bg-primary/10 rounded text-primary hover:text-white"><span className="material-symbols-outlined text-[18px]">edit</span></button>
-                                                    <button className="p-2 hover:bg-red-500/10 rounded text-slate-400 hover:text-red-400"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                                                    <button onClick={() => handleDelete(item.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-400 hover:text-red-400"><span className="material-symbols-outlined text-[18px]">delete</span></button>
                                                 </div>
                                             )}
                                         </td>
@@ -345,21 +498,43 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2"><span className="size-1.5 rounded-full bg-primary"></span> Core Identity</p>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1.5 block">Product Name</label>
-                                <input defaultValue={selectedItem?.name} className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. SuperFast Laptop" />
+                                <input
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                    placeholder="e.g. SuperFast Laptop"
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-sm font-medium text-slate-300 mb-1.5 block">SKU</label>
-                                    <input defaultValue={selectedItem?.sku} className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none" placeholder="AUTO-GEN" />
+                                    <input
+                                        value={formData.sku}
+                                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                                        className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                        placeholder="AUTO-GEN"
+                                    />
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-slate-300 mb-1.5 block">Stock</label>
-                                    <input defaultValue={selectedItem?.stock} className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none" type="number" placeholder="0" />
+                                    <input
+                                        value={formData.stock}
+                                        onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                        className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                        type="number"
+                                        placeholder="0"
+                                    />
                                 </div>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-300 mb-1.5 block">Price</label>
-                                <input defaultValue={selectedItem?.price.replace('$', '')} className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none" type="text" placeholder="0.00" />
+                                <input
+                                    value={formData.price}
+                                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                    className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                    type="text"
+                                    placeholder="0.00"
+                                />
                             </div>
                         </div>
 
@@ -374,7 +549,11 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                             {/* Dynamic Field Example */}
                             <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3 relative group hover:border-white/10">
                                 <label className="text-xs text-primary font-mono mb-1.5 block flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">list</span> category_tag</label>
-                                <select defaultValue={selectedItem?.cat} className="w-full bg-[#101922] border border-white/10 rounded-md p-2 text-sm text-slate-300 outline-none">
+                                <select
+                                    value={formData.cat}
+                                    onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
+                                    className="w-full bg-[#101922] border border-white/10 rounded-md p-2 text-sm text-slate-300 outline-none"
+                                >
                                     <option>Electronics</option>
                                     <option>Furniture</option>
                                     <option>Peripherals</option>
@@ -396,14 +575,14 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                     {MOCK_HISTORY.map((log, idx) => (
                                         <div key={idx} className="relative pl-6 group">
                                             <div className={`absolute -left-[5px] top-1 size-2.5 rounded-full border-2 border-[#101922] ${log.type === 'stock' ? 'bg-emerald-500' :
-                                                    log.type === 'price' ? 'bg-blue-500' :
-                                                        log.type === 'system' ? 'bg-purple-500' : 'bg-slate-500'
+                                                log.type === 'price' ? 'bg-blue-500' :
+                                                    log.type === 'system' ? 'bg-purple-500' : 'bg-slate-500'
                                                 }`}></div>
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex justify-between items-start">
                                                     <span className={`text-xs font-bold ${log.type === 'stock' ? 'text-emerald-400' :
-                                                            log.type === 'price' ? 'text-blue-400' :
-                                                                'text-white'
+                                                        log.type === 'price' ? 'text-blue-400' :
+                                                            'text-white'
                                                         }`}>{log.action}</span>
                                                     <span className="text-[10px] text-slate-500 font-mono">{log.date}</span>
                                                 </div>
@@ -421,7 +600,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                     </div>
                     <div className="p-5 border-t border-white/10 bg-[#101922]/50 flex gap-3 pb-8 md:pb-5">
                         <button onClick={() => setShowEngine(false)} className="flex-1 py-2.5 rounded-lg border border-white/10 text-slate-300 font-medium text-sm hover:bg-white/5">Cancel</button>
-                        <button className="flex-1 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20">Save Changes</button>
+                        <button onClick={handleSave} className="flex-1 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20">Save Changes</button>
                     </div>
                 </div>
             )}
@@ -441,18 +620,33 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                         {/* Step 1: Upload */}
                         {importStep === 1 && (
                             <div className="p-8 flex flex-col items-center justify-center text-center">
-                                <div className="w-full h-48 border-2 border-dashed border-white/10 rounded-xl bg-white/5 flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group" onClick={() => setImportStep(2)}>
+                                <div
+                                    className="w-full h-48 border-2 border-dashed border-white/10 rounded-xl bg-white/5 flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group relative"
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        const file = e.dataTransfer.files[0];
+                                        if (file) handleFileSelect(file);
+                                    }}
+                                >
+                                    <input
+                                        type="file"
+                                        accept=".csv"
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => {
+                                            if (e.target.files?.[0]) handleFileSelect(e.target.files[0]);
+                                        }}
+                                    />
                                     <div className="size-16 rounded-full bg-[#101922] border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                                         <span className="material-symbols-outlined text-3xl text-slate-400 group-hover:text-primary">cloud_upload</span>
                                     </div>
                                     <div>
                                         <p className="text-white font-medium">Click to upload or drag and drop</p>
-                                        <p className="text-slate-500 text-sm mt-1">CSV, XLS, or XLSX (max 10MB)</p>
+                                        <p className="text-slate-500 text-sm mt-1">CSV (max 10MB)</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 mt-6 w-full">
                                     <button className="flex-1 py-2 rounded-lg text-slate-400 text-sm hover:text-white font-medium">Download Template</button>
-                                    <button className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-white text-sm rounded-lg border border-white/10">Browse Files</button>
                                 </div>
                             </div>
                         )}
@@ -464,8 +658,8 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-3">
                                         <span className="material-symbols-outlined text-emerald-500">check_circle</span>
                                         <div>
-                                            <p className="text-white text-sm font-bold">inventory_sept_23.csv</p>
-                                            <p className="text-emerald-400 text-xs">File uploaded successfully • 1.2 MB</p>
+                                            <p className="text-white text-sm font-bold">{importFile?.name}</p>
+                                            <p className="text-emerald-400 text-xs">File uploaded successfully • {csvData.length} Rows</p>
                                         </div>
                                     </div>
 
@@ -473,17 +667,25 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                         <h4 className="text-white font-bold text-sm mb-3">Map Columns</h4>
                                         <div className="space-y-2">
                                             {[
-                                                { sys: 'Product Name', file: 'Name' },
-                                                { sys: 'SKU', file: 'SKU_ID' },
-                                                { sys: 'Stock Quantity', file: 'Qty' },
-                                                { sys: 'Cost Price', file: 'Unit_Cost' },
+                                                { sys: 'name', label: 'Product Name' },
+                                                { sys: 'sku', label: 'SKU' },
+                                                { sys: 'stock', label: 'Stock Quantity' },
+                                                { sys: 'price', label: 'Price' },
+                                                { sys: 'cat', label: 'Category' },
                                             ].map((field, i) => (
                                                 <div key={i} className="grid grid-cols-12 gap-4 items-center">
-                                                    <div className="col-span-4 text-sm text-slate-400">{field.sys}</div>
+                                                    <div className="col-span-4 text-sm text-slate-400">{field.label}</div>
                                                     <div className="col-span-1 flex justify-center"><span className="material-symbols-outlined text-slate-600 text-sm">arrow_right_alt</span></div>
                                                     <div className="col-span-7">
-                                                        <select className="w-full bg-[#101922] border border-white/10 rounded p-2 text-sm text-white outline-none focus:border-primary">
-                                                            <option>{field.file}</option>
+                                                        <select
+                                                            className="w-full bg-[#101922] border border-white/10 rounded p-2 text-sm text-white outline-none focus:border-primary"
+                                                            value={columnMapping[field.sys] || ''}
+                                                            onChange={(e) => setColumnMapping({ ...columnMapping, [field.sys]: e.target.value })}
+                                                        >
+                                                            <option value="">-- Select Column --</option>
+                                                            {csvHeaders.map(h => (
+                                                                <option key={h} value={h}>{h}</option>
+                                                            ))}
                                                         </select>
                                                     </div>
                                                 </div>
@@ -493,7 +695,9 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                 </div>
                                 <div className="p-5 border-t border-white/10 bg-[#1b2127] flex justify-end gap-3">
                                     <button onClick={() => setImportStep(1)} className="px-4 py-2 text-slate-300 hover:text-white text-sm">Back</button>
-                                    <button onClick={() => setImportStep(3)} className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20">Import 24 Items</button>
+                                    <button onClick={handleImportSubmit} className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20">
+                                        Import {csvData.length} Items
+                                    </button>
                                 </div>
                             </div>
                         )}

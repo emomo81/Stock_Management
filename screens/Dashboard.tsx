@@ -31,6 +31,33 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
   const [scenarioMode, setScenarioMode] = useState(false);
   const [showAlert, setShowAlert] = useState(true);
 
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('http://localhost:5001/api/stats');
+      const data = await res.json();
+      setDashboardData(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex-1 p-6 md:p-8 flex items-center justify-center text-slate-500">Loading Dashboard...</div>;
+  }
+
+  // Use fetched data or fallback
+  const chartData = dashboardData?.chartData || data;
+  const stats = dashboardData?.stats || { totalSKUs: 0, lowStock: 0, outOfStock: 0, totalValue: '$0.00' };
+
   if (showForecasting) {
     return (
       <div className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#101922] h-full">
@@ -119,7 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
               <h3 className="text-lg font-semibold text-white mb-6">Inventory Trajectory</h3>
               <div className="flex-1 w-full min-h-[350px] min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data}>
+                  <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#1985f0" stopOpacity={0.3} />
@@ -186,10 +213,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total SKUs', value: '12,450', change: '+12%', color: 'text-white', icon: 'inventory_2', iconColor: 'text-white' },
-            { label: 'Low Stock', value: '85', change: 'Action Needed', color: 'text-white', icon: 'warning', iconColor: 'text-orange-400', badgeColor: 'bg-orange-400/10 text-orange-400' },
+            { label: 'Total SKUs', value: stats.totalSKUs, change: '+12%', color: 'text-white', icon: 'inventory_2', iconColor: 'text-white' },
+            { label: 'Low Stock', value: stats.lowStock, change: 'Action Needed', color: 'text-white', icon: 'warning', iconColor: 'text-orange-400', badgeColor: 'bg-orange-400/10 text-orange-400' },
             { label: 'AI Insights', value: '12', change: '3 New', color: 'text-white', icon: 'auto_awesome', iconColor: 'text-purple-400', badgeColor: 'bg-purple-400/10 text-purple-400' },
-            { label: 'Total Value', value: '$4.2M', change: '+0.8%', color: 'text-white', icon: 'attach_money', iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-400/10 text-emerald-400' },
+            { label: 'Total Value', value: stats.totalValue, change: '+0.8%', color: 'text-white', icon: 'attach_money', iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-400/10 text-emerald-400' },
           ].map((stat, i) => (
             <div key={i} className="glass-panel p-5 rounded-xl flex flex-col gap-1 relative overflow-hidden group hover:border-white/20 transition-all cursor-pointer" onClick={() => i === 2 && setView('forecasting')}>
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">

@@ -7,7 +7,41 @@ interface AuthProps {
   setIsAuth: (auth: boolean) => void;
 }
 
-const Auth: React.FC<AuthProps> = ({ currentView, setView, setIsAuth }) => {
+const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('password123'); // Default for demo convenience
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(`http://localhost:5001/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setIsAuth(true);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setView('dashboard');
+      } else {
+        setError(data.message || 'Authentication failed');
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#101922] flex items-center justify-center relative overflow-hidden font-sans text-white">
       {/* Background Ambience */}
@@ -20,18 +54,33 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, setIsAuth }) => {
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-400 shadow-lg shadow-primary/25">
               <span className="material-symbols-outlined text-4xl text-white">inventory_2</span>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Welcome Back</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
+              Welcome Back
+            </h1>
             <p className="text-[#9cabba] text-sm max-w-xs">
               Log in to AIMS to manage your inventory with AI-driven precision.
             </p>
           </div>
 
-          <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); setIsAuth(true); setView('dashboard'); }}>
+          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+                {error}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase text-slate-400 ml-1">Email Address</label>
               <div className="relative group">
                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">mail</span>
-                <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="user@company.com" type="email" />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all"
+                  placeholder="user@company.com"
+                  type="email"
+                  required
+                />
               </div>
             </div>
 
@@ -42,19 +91,27 @@ const Auth: React.FC<AuthProps> = ({ currentView, setView, setIsAuth }) => {
               </div>
               <div className="relative group">
                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">lock</span>
-                <input className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all" placeholder="••••••••" type="password" />
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all"
+                  placeholder="••••••••"
+                  type="password"
+                  required
+                />
                 <span className="material-symbols-outlined absolute right-4 top-3.5 text-[#9cabba] cursor-pointer hover:text-white">visibility</span>
               </div>
             </div>
 
-            <button className="mt-4 w-full bg-primary hover:bg-blue-600 text-white font-bold h-12 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+            <button disabled={loading} className="mt-4 w-full bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold h-12 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+              {loading && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
               Sign In
             </button>
           </form>
 
           <div className="mt-6 pt-6 border-t border-white/5 text-center">
             <p className="text-sm text-[#9cabba]">
-              Authorized personnel only.
+              Restricted Access. Employee Login Only.
             </p>
           </div>
         </div>
