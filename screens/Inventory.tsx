@@ -587,8 +587,11 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                 {isCustomCategory ? (
                                     <div className="flex gap-2">
                                         <input
-                                            value={formData.cat}
-                                            onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
+                                            value={formData.cat || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setFormData(prev => ({ ...prev, cat: val }));
+                                            }}
                                             className="flex-1 bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
                                             placeholder="Enter new category"
                                             autoFocus
@@ -605,11 +608,12 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                     <select
                                         value={formData.cat}
                                         onChange={(e) => {
-                                            if (e.target.value === '__NEW__') {
+                                            const val = e.target.value;
+                                            if (val === '__NEW__') {
                                                 setIsCustomCategory(true);
-                                                setFormData({ ...formData, cat: '' });
+                                                setFormData(prev => ({ ...prev, cat: '' }));
                                             } else {
-                                                setFormData({ ...formData, cat: e.target.value });
+                                                setFormData(prev => ({ ...prev, cat: val }));
                                             }
                                         }}
                                         className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
