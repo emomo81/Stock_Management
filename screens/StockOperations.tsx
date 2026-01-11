@@ -219,7 +219,10 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
         item.sku.toLowerCase().includes(salesSearch.toLowerCase())
     ).slice(0, 5);
 
-    const addItemToCart = () => {
+    const addItemToCart = (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        console.log("Adding item to cart", { selectedSalesItem, customItem });
+
         if (selectedSalesItem) {
             setCart([...cart, {
                 id: selectedSalesItem.id,
