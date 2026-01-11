@@ -12,6 +12,16 @@ export interface InventoryItem {
     attributes?: Record<string, string>;
 }
 
+export interface Transaction {
+    id: string;
+    type: 'IN' | 'OUT';
+    itemId: string;
+    qty: number;
+    price: number;
+    vendor?: string;
+    date?: string;
+}
+
 export interface User {
     id: string;
     email: string;
@@ -89,6 +99,32 @@ export const deleteItem = (id: string): Promise<boolean> => {
         db.run(`DELETE FROM inventory WHERE id = ?`, [id], function (err) {
             if (err) reject(err);
             else resolve(this.changes > 0);
+        });
+    });
+};
+
+export const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> => {
+    return new Promise((resolve, reject) => {
+        const id = uuidv4();
+        const { type, itemId, qty, price, vendor } = transaction;
+        db.run(
+            `INSERT INTO transactions (id, type, itemId, qty, price, vendor) VALUES (?, ?, ?, ?, ?, ?)`,
+            [id, type, itemId, qty, price, vendor],
+            function (err) {
+                if (err) reject(err);
+                else resolve({ id, ...transaction });
+            }
+        );
+    });
+};
+
+export const getVendors = (): Promise<string[]> => {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT DISTINCT vendor FROM transactions WHERE vendor IS NOT NULL AND vendor != ''", (err, rows: any[]) => {
+            if (err) reject(err);
+            else {
+                resolve(rows.map(r => r.vendor));
+            }
         });
     });
 };

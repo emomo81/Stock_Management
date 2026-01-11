@@ -39,6 +39,17 @@ const initDb = () => {
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
+        // Transactions Table
+        db.run(`CREATE TABLE IF NOT EXISTS transactions (
+            id TEXT PRIMARY KEY,
+            type TEXT,
+            itemId TEXT,
+            qty INTEGER,
+            price TEXT,
+            vendor TEXT,
+            date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
         // Migration: Add attributes column if it doesn't exist
         db.all("PRAGMA table_info(inventory)", (err, rows: any[]) => {
             if (err) console.error("Error checking table info:", err);

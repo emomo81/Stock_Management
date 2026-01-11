@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { addTransaction, getVendors } from './store'; // Added imports for new routes
 
 dotenv.config();
 
@@ -21,6 +22,26 @@ app.use('/api/auth', authRoutes);
 // Health Check Route
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Backend is running' });
+});
+
+// Get unique vendors from history
+app.get('/api/vendors', async (req, res) => {
+    try {
+        const vendors = await getVendors();
+        res.json(vendors);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch vendors' });
+    }
+});
+
+// Add Transaction (Internal or Audit)
+app.post('/api/transactions', async (req, res) => {
+    try {
+        const transaction = await addTransaction(req.body);
+        res.status(201).json(transaction);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add transaction' });
+    }
 });
 
 app.listen(PORT, () => {

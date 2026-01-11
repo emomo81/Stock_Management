@@ -15,33 +15,43 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     ]);
     const [isAddingItem, setIsAddingItem] = useState(false);
 
-    // Stock In State
     const [items, setItems] = useState<any[]>([]);
+    const [vendors, setVendors] = useState<string[]>([]); // Vendor History
     const [stockInSearch, setStockInSearch] = useState('');
     const [selectedStockItem, setSelectedStockItem] = useState<any>(null);
     const [stockInQty, setStockInQty] = useState('');
     const [stockInCost, setStockInCost] = useState('');
-    const [stockInVendor, setStockInVendor] = useState('TechSupplies Global');
+    const [stockInVendor, setStockInVendor] = useState('');
     const [stockInInvoice, setStockInInvoice] = useState('');
     const [showStockInSuccess, setShowStockInSuccess] = useState(false);
     const [showStockSuggestions, setShowStockSuggestions] = useState(false);
+    const [showVendorSuggestions, setShowVendorSuggestions] = useState(false); // Vendor Combobox State
 
     React.useEffect(() => {
-        const fetchItems = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch('http://localhost:5001/api/inventory');
-                const data = await res.json();
-                setItems(data);
+                const [itemsRes, vendorsRes] = await Promise.all([
+                    fetch('http://localhost:5001/api/inventory'),
+                    fetch('http://localhost:5001/api/vendors')
+                ]);
+                const itemsData = await itemsRes.json();
+                const vendorsData = await vendorsRes.json();
+                setItems(itemsData);
+                setVendors(vendorsData);
             } catch (error) {
-                console.error('Failed to fetch items:', error);
+                console.error('Failed to fetch data:', error);
             }
         };
-        fetchItems();
+        fetchData();
     }, []);
 
     const filteredStockItems = items.filter(item =>
         item.name.toLowerCase().includes(stockInSearch.toLowerCase()) ||
         item.sku.toLowerCase().includes(stockInSearch.toLowerCase())
+    ).slice(0, 5);
+
+    const filteredVendors = vendors.filter(v =>
+        v.toLowerCase().includes(stockInVendor.toLowerCase())
     ).slice(0, 5);
 
     const handleStockIn = async (e: React.FormEvent) => {
@@ -64,17 +74,34 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                 })
             });
 
+            // Save Transaction History
+            await fetch('http://localhost:5001/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'IN',
+                    itemId: selectedStockItem.id,
+                    qty: addedQty,
+                    price: parseFloat(stockInCost) || 0,
+                    vendor: stockInVendor
+                })
+            });
+
             // Reset and Show Success
             setShowStockInSuccess(true);
             setStockInQty('');
             setStockInCost('');
             setStockInSearch('');
+            setStockInVendor(''); // Clear vendor or keep it? User might add multiple from same vendor. Let's clear for now.
             setSelectedStockItem(null);
 
-            // Refresh items
-            const res = await fetch('http://localhost:5001/api/inventory');
-            const data = await res.json();
-            setItems(data);
+            // Refresh Data
+            const [itemsRes, vendorsRes] = await Promise.all([
+                fetch('http://localhost:5001/api/inventory'),
+                fetch('http://localhost:5001/api/vendors')
+            ]);
+            setItems(await itemsRes.json());
+            setVendors(await vendorsRes.json());
 
             setTimeout(() => setShowStockInSuccess(false), 3000);
 
@@ -473,12 +500,39 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Select Vendor</label>
-                                    <input
-                                        value={stockInVendor}
-                                        onChange={(e) => setStockInVendor(e.target.value)}
-                                        className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"
-                                        placeholder="e.g. TechSupplies Global"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            value={stockInVendor}
+                                            onChange={(e) => {
+                                                setStockInVendor(e.target.value);
+                                                setShowVendorSuggestions(true);
+                                            }}
+                                            onFocus={() => setShowVendorSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowVendorSuggestions(false), 200)}
+                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"
+                                            placeholder="e.g. TechSupplies Global"
+                                        />
+                                        {/* Vendor Suggestions */}
+                                        {showVendorSuggestions && (
+                                            <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto">
+                                                {filteredVendors.length > 0 ? filteredVendors.map((v, i) => (
+                                                    <button
+                                                        key={i}
+                                                        type="button"
+                                                        className="w-full text-left p-2.5 hover:bg-white/5 border-b border-white/5 last:border-0 text-sm text-white"
+                                                        onClick={() => {
+                                                            setStockInVendor(v);
+                                                            setShowVendorSuggestions(false);
+                                                        }}
+                                                    >
+                                                        {v}
+                                                    </button>
+                                                )) : (
+                                                    stockInVendor && <div className="p-2.5 text-xs text-emerald-400">New Vendor: "{stockInVendor}"</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Invoice #</label>
