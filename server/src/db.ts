@@ -35,8 +35,23 @@ const initDb = () => {
             price TEXT,
             cat TEXT,
             img TEXT,
+            attributes TEXT,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Migration: Add attributes column if it doesn't exist
+        db.all("PRAGMA table_info(inventory)", (err, rows: any[]) => {
+            if (err) console.error("Error checking table info:", err);
+            else {
+                const hasAttributes = rows.some(r => r.name === 'attributes');
+                if (!hasAttributes) {
+                    db.run("ALTER TABLE inventory ADD COLUMN attributes TEXT", (err) => {
+                        if (err) console.error("Error adding attributes column:", err);
+                        else console.log("Added attributes column to inventory table");
+                    });
+                }
+            }
+        });
 
         // Seed Admin User
         db.get("SELECT * FROM users WHERE role = 'admin'", async (err, row) => {

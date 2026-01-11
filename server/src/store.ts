@@ -9,6 +9,7 @@ export interface InventoryItem {
     price: string;
     cat: string;
     img: string;
+    attributes?: Record<string, string>;
 }
 
 export interface User {
@@ -25,7 +26,13 @@ export const getItems = (): Promise<InventoryItem[]> => {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM inventory", (err, rows) => {
             if (err) reject(err);
-            else resolve(rows as InventoryItem[]);
+            else {
+                const items = rows.map((row: any) => ({
+                    ...row,
+                    attributes: row.attributes ? JSON.parse(row.attributes) : {}
+                }));
+                resolve(items as InventoryItem[]);
+            }
         });
     });
 };
@@ -33,10 +40,10 @@ export const getItems = (): Promise<InventoryItem[]> => {
 export const addItem = (item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
     return new Promise((resolve, reject) => {
         const id = uuidv4();
-        const { name, sku, stock, price, cat, img } = item;
+        const { name, sku, stock, price, cat, img, attributes } = item;
         db.run(
-            `INSERT INTO inventory (id, name, sku, stock, price, cat, img) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, name, sku, stock, price, cat, img],
+            `INSERT INTO inventory (id, name, sku, stock, price, cat, img, attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, name, sku, stock, price, cat, img, JSON.stringify(attributes || {})],
             function (err) {
                 if (err) reject(err);
                 else resolve({ id, ...item });
@@ -52,7 +59,9 @@ export const updateItem = (id: string, updates: Partial<InventoryItem>): Promise
         if (keys.length === 0) return resolve(null);
 
         const setClause = keys.map(key => `${key} = ?`).join(', ');
-        const values = Object.values(updates);
+        const values = Object.values(updates).map(val =>
+            (typeof val === 'object' && val !== null) ? JSON.stringify(val) : val
+        );
 
         db.run(
             `UPDATE inventory SET ${setClause} WHERE id = ?`,
@@ -62,9 +71,12 @@ export const updateItem = (id: string, updates: Partial<InventoryItem>): Promise
                 else if (this.changes === 0) resolve(null);
                 else {
                     // Return full updated item
-                    db.get(`SELECT * FROM inventory WHERE id = ?`, [id], (err, row) => {
+                    db.get(`SELECT * FROM inventory WHERE id = ?`, [id], (err, row: any) => {
                         if (err) reject(err);
-                        else resolve(row as InventoryItem);
+                        else resolve({
+                            ...row,
+                            attributes: row.attributes ? JSON.parse(row.attributes) : {}
+                        } as InventoryItem);
                     });
                 }
             }
