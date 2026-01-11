@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { View, UserRole } from '../types';
 
 interface InventoryProps {
@@ -54,6 +54,13 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
 
     // Custom Category State
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const customCategoryInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isCustomCategory && customCategoryInputRef.current) {
+            customCategoryInputRef.current.focus();
+        }
+    }, [isCustomCategory]);
 
     const handleFileSelect = (file: File) => {
         setImportFile(file);
@@ -587,14 +594,14 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                 {isCustomCategory ? (
                                     <div className="flex gap-2">
                                         <input
-                                            value={formData.cat || ''}
+                                            ref={customCategoryInputRef}
+                                            value={formData.cat}
                                             onChange={(e) => {
                                                 const val = e.target.value;
                                                 setFormData(prev => ({ ...prev, cat: val }));
                                             }}
                                             className="flex-1 bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
                                             placeholder="Enter new category"
-                                            autoFocus
                                         />
                                         <button
                                             onClick={() => setIsCustomCategory(false)}
