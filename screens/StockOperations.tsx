@@ -34,17 +34,53 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     const [auditReason, setAuditReason] = useState('Data Entry Error');
     const [showAuditSuccess, setShowAuditSuccess] = useState(false);
 
+    // Forecasting State
+    const [forecastItems, setForecastItems] = useState<any[]>([]);
+
     React.useEffect(() => {
         const fetchData = async () => {
             try {
-                const [itemsRes, vendorsRes] = await Promise.all([
+                const [itemsRes, vendorsRes, transRes] = await Promise.all([
                     fetch('http://localhost:5001/api/inventory'),
-                    fetch('http://localhost:5001/api/vendors')
+                    fetch('http://localhost:5001/api/vendors'),
+                    fetch('http://localhost:5001/api/transactions')
                 ]);
                 const itemsData = await itemsRes.json();
                 const vendorsData = await vendorsRes.json();
+                const transData = await transRes.json();
+
                 setItems(itemsData);
                 setVendors(vendorsData);
+
+                // Calculate Forecast
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+
+                const forecast = itemsData.map((item: any) => {
+                    // Filter OUT transactions for this item in last 30 days
+                    const outTx = transData.filter((t: any) =>
+                        t.itemId === item.id &&
+                        t.type === 'OUT' &&
+                        new Date(t.date || '') >= thirtyDaysAgo
+                    );
+
+                    const totalSold = outTx.reduce((sum: number, t: any) => sum + (t.qty || 0), 0);
+                    const velocity = totalSold / 30; // Units per day
+                    const daysRemaining = velocity > 0 ? Math.floor(item.stock / velocity) : 999;
+
+                    let status = 'Healthy';
+                    if (daysRemaining < 7) status = 'Critical';
+                    else if (daysRemaining < 14) status = 'Low';
+
+                    // Simple Reorder Recommendation (Target 30 days supply)
+                    const targetStock = Math.ceil(velocity * 30);
+                    const reorderQty = Math.max(0, targetStock - item.stock);
+
+                    return { ...item, velocity, daysRemaining, status, reorderQty };
+                }).sort((a: any, b: any) => a.daysRemaining - b.daysRemaining);
+
+                setForecastItems(forecast);
+
             } catch (error) {
                 console.error('Failed to fetch data:', error);
             }
@@ -470,8 +506,8 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                             setAuditPhysicalCount(item.stock?.toString() || '0');
                                         }}
                                         className={`p-4 rounded-lg cursor-pointer border transition-all flex justify-between items-center ${auditSelectedItem?.id === item.id
-                                                ? 'bg-primary/10 border-primary'
-                                                : 'hover:bg-white/5 border-transparent hover:border-white/5'
+                                            ? 'bg-primary/10 border-primary'
+                                            : 'hover:bg-white/5 border-transparent hover:border-white/5'
                                             }`}
                                     >
                                         <div className="flex gap-3">

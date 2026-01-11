@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { addTransaction, getVendors } from './store'; // Added imports for new routes
+import { addTransaction, getVendors, getTransactions } from './store'; // Added imports for new routes
 
 dotenv.config();
 
@@ -41,6 +41,16 @@ app.post('/api/transactions', async (req, res) => {
         res.status(201).json(transaction);
     } catch (error) {
         res.status(500).json({ error: 'Failed to add transaction' });
+    }
+});
+
+// Get all transactions for analysis
+app.get('/api/transactions', async (req, res) => {
+    try {
+        const transactions = await getTransactions();
+        res.json(transactions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch transactions' });
     }
 });
 

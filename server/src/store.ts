@@ -129,6 +129,15 @@ export const getVendors = (): Promise<string[]> => {
     });
 };
 
+export const getTransactions = (): Promise<Transaction[]> => {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM transactions ORDER BY date DESC", (err, rows: any[]) => {
+            if (err) reject(err);
+            else resolve(rows as Transaction[]);
+        });
+    });
+};
+
 // --- User Operations ---
 
 export const findUser = (email: string): Promise<User | undefined> => {
