@@ -575,6 +575,20 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                                     placeholder="0.00"
                                 />
                             </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 mb-1.5 block">Category</label>
+                                <select
+                                    value={formData.cat}
+                                    onChange={(e) => setFormData({ ...formData, cat: e.target.value })}
+                                    className="w-full bg-[#101922] border border-white/10 rounded-lg p-2.5 text-sm text-white focus:border-primary outline-none"
+                                >
+                                    <option>Electronics</option>
+                                    <option>Furniture</option>
+                                    <option>Peripherals</option>
+                                    <option>Wearables</option>
+                                    <option>Accessories</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="border-t border-white/5"></div>
