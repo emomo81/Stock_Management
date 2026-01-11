@@ -20,6 +20,7 @@ export interface Transaction {
     price: number;
     vendor?: string;
     date?: string;
+    description?: string;
 }
 
 export interface User {
@@ -103,16 +104,15 @@ export const deleteItem = (id: string): Promise<boolean> => {
     });
 };
 
-export const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> => {
+export const addTransaction = (transaction: Transaction): Promise<void> => {
     return new Promise((resolve, reject) => {
+        const { itemId, type, qty, price, vendor, description } = transaction;
         const id = uuidv4();
-        const { type, itemId, qty, price, vendor } = transaction;
-        db.run(
-            `INSERT INTO transactions (id, type, itemId, qty, price, vendor) VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, type, itemId, qty, price, vendor],
-            function (err) {
+        db.run('INSERT INTO transactions (id, type, itemId, qty, price, vendor, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [id, type, itemId, qty, price, vendor, description],
+            (err) => {
                 if (err) reject(err);
-                else resolve({ id, ...transaction });
+                else resolve();
             }
         );
     });

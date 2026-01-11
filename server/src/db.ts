@@ -47,18 +47,31 @@ const initDb = () => {
             qty INTEGER,
             price TEXT,
             vendor TEXT,
-            date DATETIME DEFAULT CURRENT_TIMESTAMP
+            date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            description TEXT
         )`);
 
-        // Migration: Add attributes column if it doesn't exist
-        db.all("PRAGMA table_info(inventory)", (err, rows: any[]) => {
-            if (err) console.error("Error checking table info:", err);
-            else {
+        // Migration: Add attributes to inventory if missing
+        db.all("PRAGMA table_info(inventory)", (err: any, rows: any[]) => {
+            if (!err) {
                 const hasAttributes = rows.some(r => r.name === 'attributes');
                 if (!hasAttributes) {
-                    db.run("ALTER TABLE inventory ADD COLUMN attributes TEXT", (err) => {
-                        if (err) console.error("Error adding attributes column:", err);
-                        else console.log("Added attributes column to inventory table");
+                    db.run("ALTER TABLE inventory ADD COLUMN attributes TEXT", (err: any) => {
+                        if (err) console.error("Migration 'attributes' failed:", err);
+                        else console.log("Migration: Added 'attributes' to inventory.");
+                    });
+                }
+            }
+        });
+
+        // Migration: Add description to transactions if missing
+        db.all("PRAGMA table_info(transactions)", (err: any, rows: any[]) => {
+            if (!err) {
+                const hasDesc = rows.some(r => r.name === 'description');
+                if (!hasDesc) {
+                    db.run("ALTER TABLE transactions ADD COLUMN description TEXT", (err: any) => {
+                        if (err) console.error("Migration 'description' failed:", err);
+                        else console.log("Migration: Added 'description' to transactions.");
                     });
                 }
             }

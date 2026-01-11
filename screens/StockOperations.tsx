@@ -10,10 +10,14 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
     const [showInvoice, setShowInvoice] = useState(false);
-    const [cart, setCart] = useState<{ name: string, sku: string, qty: number, price: number }[]>([
-        { name: 'Wireless Headphones', sku: 'AUDIO-WH-1000', qty: 2, price: 349.00 }
-    ]);
+    const [cart, setCart] = useState<{ id?: string; name: string; sku?: string; qty: number; price: number; isCustom?: boolean }[]>([]);
     const [isAddingItem, setIsAddingItem] = useState(false);
+
+    // Sales Order State
+    const [salesSearch, setSalesSearch] = useState('');
+    const [selectedSalesItem, setSelectedSalesItem] = useState<any>(null);
+    const [customItem, setCustomItem] = useState({ name: '', price: '' });
+    const [showSalesSuggestions, setShowSalesSuggestions] = useState(false);
 
     const [items, setItems] = useState<any[]>([]);
     const [vendors, setVendors] = useState<string[]>([]); // Vendor History
@@ -210,14 +214,81 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
         }
     };
 
+    const filteredSalesItems = items.filter(item =>
+        item.name.toLowerCase().includes(salesSearch.toLowerCase()) ||
+        item.sku.toLowerCase().includes(salesSearch.toLowerCase())
+    ).slice(0, 5);
+
     const addItemToCart = () => {
-        setCart([...cart, { name: 'Smart Watch Series 5', sku: 'WEAR-SW-005', qty: 1, price: 399.00 }]);
-        setIsAddingItem(false);
+        if (selectedSalesItem) {
+            setCart([...cart, {
+                id: selectedSalesItem.id,
+                name: selectedSalesItem.name,
+                sku: selectedSalesItem.sku,
+                qty: 1,
+                price: selectedSalesItem.price,
+                isCustom: false
+            }]);
+            setSelectedSalesItem(null);
+            setSalesSearch('');
+            setIsAddingItem(false);
+        } else if (customItem.name && customItem.price) {
+            setCart([...cart, {
+                name: customItem.name,
+                qty: 1,
+                price: parseFloat(customItem.price),
+                isCustom: true
+            }]);
+            setCustomItem({ name: '', price: '' });
+            setIsAddingItem(false);
+        }
     };
 
-    const handleCheckout = (e: React.FormEvent) => {
+    const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
-        setShowInvoice(true);
+
+        try {
+            for (const item of cart) {
+                // 1. Update Stock (if Inventory Item)
+                if (!item.isCustom && item.id) {
+                    const originalItem = items.find(i => i.id === item.id);
+                    if (originalItem) {
+                        const newStock = (originalItem.stock || 0) - item.qty;
+                        await fetch(`http://localhost:5001/api/inventory/${item.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ...originalItem,
+                                stock: newStock,
+                                attributes: originalItem.attributes
+                            })
+                        });
+                    }
+                }
+
+                // 2. Create Transaction
+                await fetch('http://localhost:5001/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'OUT',
+                        itemId: item.isCustom ? 'CUSTOM' : item.id,
+                        qty: item.qty,
+                        price: item.price,
+                        vendor: customerName, // Use vendor field for Customer Name
+                        description: item.isCustom ? item.name : undefined
+                    })
+                });
+            }
+
+            setShowInvoice(true);
+            // Refresh Inventory
+            const res = await fetch('http://localhost:5001/api/inventory');
+            setItems(await res.json());
+
+        } catch (error) {
+            console.error("Checkout failed", error);
+        }
     };
 
     const calculateTotal = () => cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
