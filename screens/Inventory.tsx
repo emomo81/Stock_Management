@@ -157,6 +157,9 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
 
     const handleSave = async () => {
         try {
+            // Auto-generate SKU if empty
+            const finalSku = formData.sku.trim() || `SKU-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
             if (selectedItem) {
                 // Update
                 await fetch(`http://localhost:5001/api/inventory/${selectedItem.id}`, {
@@ -164,6 +167,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...formData,
+                        sku: finalSku,
                         attributes: formData.attributes.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
                     })
                 });
@@ -174,6 +178,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...formData,
+                        sku: finalSku,
                         attributes: formData.attributes.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {})
                     })
                 });
