@@ -473,7 +473,12 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Select Vendor</label>
-                                    <select className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"><option>TechSupplies Global</option></select>
+                                    <input
+                                        value={stockInVendor}
+                                        onChange={(e) => setStockInVendor(e.target.value)}
+                                        className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"
+                                        placeholder="e.g. TechSupplies Global"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Invoice #</label>
