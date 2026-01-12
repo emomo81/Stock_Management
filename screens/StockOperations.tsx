@@ -17,6 +17,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     const [salesSearch, setSalesSearch] = useState('');
     const [selectedSalesItem, setSelectedSalesItem] = useState<any>(null);
     const [customItem, setCustomItem] = useState({ name: '', price: '' });
+    const [salesQty, setSalesQty] = useState(1); // Quantity for new item
     const [showSalesSuggestions, setShowSalesSuggestions] = useState(false);
 
     const [items, setItems] = useState<any[]>([]);
@@ -41,26 +42,42 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     // Forecasting State
     const [forecastItems, setForecastItems] = useState<any[]>([]);
 
-    React.useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [itemsRes, vendorsRes, transRes] = await Promise.all([
-                    fetch('http://localhost:5001/api/inventory'),
-                    fetch('http://localhost:5001/api/vendors'),
-                    fetch('http://localhost:5001/api/transactions')
-                ]);
-                const itemsData = await itemsRes.json();
-                const vendorsData = await vendorsRes.json();
-                const transData = await transRes.json();
+    // Checkout State
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+    const fetchData = async () => {
+        // Fetch Inventory (Critical)
+        try {
+            const itemsRes = await fetch('http://localhost:5001/api/inventory');
+            const itemsData = await itemsRes.json();
+
+            if (Array.isArray(itemsData)) {
                 setItems(itemsData);
-                setVendors(vendorsData);
+            } else {
+                console.error('Invalid items data:', itemsData);
+            }
+        } catch (error: any) {
+            console.error('Failed to fetch inventory:', error);
+        }
 
-                // Calculate Forecast
+        // Fetch History (Non-Critical)
+        try {
+            const [vendorsRes, transRes] = await Promise.all([
+                fetch('http://localhost:5001/api/vendors'),
+                fetch('http://localhost:5001/api/transactions')
+            ]);
+            const vendorsData = await vendorsRes.json();
+            const transData = await transRes.json();
+
+            setVendors(vendorsData);
+
+            // Calculate Forecast only if we have items
+            if (items.length > 0) {
                 const now = new Date();
                 const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
-                const forecast = itemsData.map((item: any) => {
+                const forecast = items.map((item: any) => {
                     // Filter OUT transactions for this item in last 30 days
                     const outTx = transData.filter((t: any) =>
                         t.itemId === item.id &&
@@ -82,15 +99,16 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
 
                     return { ...item, velocity, daysRemaining, status, reorderQty };
                 }).sort((a: any, b: any) => a.daysRemaining - b.daysRemaining);
-
                 setForecastItems(forecast);
-
-            } catch (error) {
-                console.error('Failed to fetch data:', error);
             }
-        };
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        }
+    };
+
+    React.useEffect(() => {
         fetchData();
-    }, []);
+    }, [view]);
 
     const filteredStockItems = items.filter(item =>
         item.name.toLowerCase().includes(stockInSearch.toLowerCase()) ||
@@ -215,40 +233,62 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
     };
 
     const filteredSalesItems = items.filter(item =>
-        item.name.toLowerCase().includes(salesSearch.toLowerCase()) ||
-        item.sku.toLowerCase().includes(salesSearch.toLowerCase())
+        (item.name && item.name.toLowerCase().includes(salesSearch.toLowerCase())) ||
+        (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
     ).slice(0, 5);
 
     const addItemToCart = (e?: React.MouseEvent) => {
         if (e) e.preventDefault();
-        console.log("Adding item to cart", { selectedSalesItem, customItem });
+        console.log("Adding item to cart", { selectedSalesItem, customItem, salesQty });
 
         if (selectedSalesItem) {
             setCart([...cart, {
                 id: selectedSalesItem.id,
                 name: selectedSalesItem.name,
                 sku: selectedSalesItem.sku,
-                qty: 1,
-                price: selectedSalesItem.price,
+                qty: salesQty,
+                price: typeof selectedSalesItem.price === 'string' ? parseFloat(selectedSalesItem.price.replace(/[^0-9.]/g, '')) : Number(selectedSalesItem.price),
                 isCustom: false
             }]);
             setSelectedSalesItem(null);
             setSalesSearch('');
+            setSalesQty(1);
             setIsAddingItem(false);
         } else if (customItem.name && customItem.price) {
             setCart([...cart, {
                 name: customItem.name,
-                qty: 1,
+                qty: salesQty,
                 price: parseFloat(customItem.price),
                 isCustom: true
             }]);
             setCustomItem({ name: '', price: '' });
+            setSalesQty(1);
             setIsAddingItem(false);
         }
     };
 
+    const updateCartQty = (index: number, change: number) => {
+        const newCart = [...cart];
+        newCart[index].qty += change;
+        if (newCart[index].qty < 1) newCart[index].qty = 1;
+        setCart(newCart);
+    };
+
+    const removeFromCart = (index: number) => {
+        const newCart = cart.filter((_, i) => i !== index);
+        setCart(newCart);
+    };
+
     const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (cart.length === 0) {
+            setCheckoutError("Cart is empty");
+            return;
+        }
+
+        setIsProcessing(true);
+        setCheckoutError(null);
 
         try {
             for (const item of cart) {
@@ -257,7 +297,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                     const originalItem = items.find(i => i.id === item.id);
                     if (originalItem) {
                         const newStock = (originalItem.stock || 0) - item.qty;
-                        await fetch(`http://localhost:5001/api/inventory/${item.id}`, {
+                        const res = await fetch(`http://localhost:5001/api/inventory/${item.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -266,11 +306,12 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                 attributes: originalItem.attributes
                             })
                         });
+                        if (!res.ok) throw new Error(`Failed to update stock for ${item.name}`);
                     }
                 }
 
                 // 2. Create Transaction
-                await fetch('http://localhost:5001/api/transactions', {
+                const transRes = await fetch('http://localhost:5001/api/transactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -278,19 +319,28 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                         itemId: item.isCustom ? 'CUSTOM' : item.id,
                         qty: item.qty,
                         price: item.price,
-                        vendor: customerName, // Use vendor field for Customer Name
+                        vendor: customerName || 'Guest', // Use vendor field for Customer Name
                         description: item.isCustom ? item.name : undefined
                     })
                 });
+                if (!transRes.ok) {
+                    const errorText = await transRes.text();
+                    throw new Error(`Failed to create transaction for ${item.name}: ${errorText}`);
+                }
             }
 
+            // Refresh Inventory first
+            await fetchData();
+            // Then show invoice
             setShowInvoice(true);
-            // Refresh Inventory
-            const res = await fetch('http://localhost:5001/api/inventory');
-            setItems(await res.json());
+            // Clear cart? Maybe wait until invoice closed or new order started.
+            // keeping cart for invoice display.
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Checkout failed", error);
+            setCheckoutError(error.message || "Checkout failed. Please try again.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -353,33 +403,188 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                         <h3 className="text-white font-bold flex items-center gap-2">
                                             <span className="material-symbols-outlined text-primary">shopping_cart</span> Order Items
                                         </h3>
-                                        <button type="button" onClick={() => addItemToCart()} className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
+                                        <button type="button" onClick={() => setIsAddingItem(true)} className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
                                             <span className="material-symbols-outlined text-sm">add</span> Add Item
                                         </button>
                                     </div>
 
+                                    {/* Add Item Form */}
+                                    {isAddingItem && (
+                                        <div className="glass-panel p-4 rounded-xl border border-white/10 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                            <h4 className="text-white font-bold text-sm border-b border-white/10 pb-2">Add Item to Order</h4>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <label className="text-xs text-[#9cabba]">Select Product</label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={fetchData}
+                                                            className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[12px]">refresh</span> Refresh List
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Custom Dropdown / Search */}
+                                                    <div className="relative">
+                                                        <div
+                                                            className="flex items-center bg-[#1b2127] border border-[#3b4754] rounded-lg h-10 px-3 cursor-text focus-within:border-primary transition-colors"
+                                                            onClick={() => {
+                                                                if (!showSalesSuggestions) setShowSalesSuggestions(true);
+                                                                // Focus input
+                                                                const input = document.getElementById('sales-search-input');
+                                                                if (input) input.focus();
+                                                            }}
+                                                        >
+                                                            <span className="material-symbols-outlined text-slate-500 mr-2">search</span>
+                                                            <input
+                                                                id="sales-search-input"
+                                                                value={salesSearch}
+                                                                onChange={(e) => {
+                                                                    setSalesSearch(e.target.value);
+                                                                    if (!showSalesSuggestions) setShowSalesSuggestions(true);
+                                                                    setSelectedSalesItem(null);
+                                                                    setCustomItem({ name: '', price: '' });
+                                                                }}
+                                                                className="bg-transparent border-none outline-none text-white text-sm w-full placeholder-slate-500"
+                                                                placeholder={items.length > 0 ? "Type to search..." : "Loading items..."}
+                                                                autoComplete="off"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setShowSalesSuggestions(!showSalesSuggestions);
+                                                                }}
+                                                                className="text-slate-500 hover:text-white"
+                                                            >
+                                                                <span className="material-symbols-outlined">{showSalesSuggestions ? 'arrow_drop_up' : 'arrow_drop_down'}</span>
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Dropdown List */}
+                                                        {showSalesSuggestions && (
+                                                            <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                                                                {items.filter(item =>
+                                                                    !salesSearch ||
+                                                                    (item.name && item.name.toLowerCase().includes(salesSearch.toLowerCase())) ||
+                                                                    (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
+                                                                ).length > 0 ? (
+                                                                    items.filter(item =>
+                                                                        !salesSearch ||
+                                                                        (item.name && item.name.toLowerCase().includes(salesSearch.toLowerCase())) ||
+                                                                        (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
+                                                                    ).map(item => (
+                                                                        <button
+                                                                            key={item.id}
+                                                                            type="button"
+                                                                            className="w-full text-left p-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
+                                                                            onClick={() => {
+                                                                                setSelectedSalesItem(item);
+                                                                                setSalesSearch(item.name);
+                                                                                setSalesQty(1);
+                                                                                setShowSalesSuggestions(false);
+                                                                            }}
+                                                                        >
+                                                                            <div>
+                                                                                <p className="text-white text-sm font-bold">{item.name}</p>
+                                                                                <p className="text-xs text-slate-500 font-mono">{item.sku}</p>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <p className="text-xs text-slate-400">Stock</p>
+                                                                                <p className="text-white font-mono font-bold text-emerald-400">{item.stock}</p>
+                                                                            </div>
+                                                                        </button>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="p-4 text-center">
+                                                                        <p className="text-sm text-slate-400 mb-1">No products found.</p>
+                                                                        {items.length === 0 && <p className="text-xs text-slate-500">Inventory is empty.</p>}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>    {selectedSalesItem && (
+                                                    <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
+                                                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                                        Selected: {selectedSalesItem.name}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 text-slate-400">
+                                                <span className="material-symbols-outlined text-sm">info</span>
+                                                <span className="text-xs">Or add a custom item:</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div className="col-span-2">
+                                                    <input
+                                                        value={customItem.name}
+                                                        onChange={(e) => {
+                                                            setCustomItem({ ...customItem, name: e.target.value });
+                                                            setSalesSearch('');
+                                                            setSelectedSalesItem(null);
+                                                        }}
+                                                        placeholder="Item Name"
+                                                        className="w-full bg-[#1b2127] border border-white/10 rounded text-sm text-white p-2"
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    value={customItem.price}
+                                                    onChange={(e) => setCustomItem({ ...customItem, price: e.target.value })}
+                                                    placeholder="Price"
+                                                    className="bg-[#1b2127] border border-white/10 rounded text-sm text-white p-2"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center border border-white/10 rounded bg-[#1b2127]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSalesQty(Math.max(1, salesQty - 1))}
+                                                        className="px-3 py-1.5 text-slate-400 hover:bg-white/5"
+                                                    >-</button>
+                                                    <span className="px-2 text-white text-sm font-mono w-8 text-center">{salesQty}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSalesQty(salesQty + 1)}
+                                                        className="px-3 py-1.5 text-slate-400 hover:bg-white/5"
+                                                    >+</button>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={!selectedSalesItem && (!customItem.name || !customItem.price)}
+                                                    onClick={addItemToCart}
+                                                    className="flex-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-1.5 rounded text-xs font-bold hover:bg-emerald-500/30 transition disabled:opacity-50"
+                                                >
+                                                    Confirm Add
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-3">
                                         {cart.map((item, idx) => (
-                                            <div key={idx} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg group">
-                                                <div className="size-10 bg-black/20 rounded flex items-center justify-center text-slate-500">
-                                                    <span className="material-symbols-outlined">inventory_2</span>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-white text-sm font-medium">{item.name}</p>
-                                                    <p className="text-xs text-slate-500">{item.sku}</p>
+                                            <div key={idx} className="flex justify-between items-center group bg-white/5 p-3 rounded-lg border border-transparent hover:border-white/10 transition">
+                                                <div className="flex items-center gap-3">
+                                                    <button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><span className="material-symbols-outlined text-sm">close</span></button>
+                                                    <div>
+                                                        <p className="text-white text-sm font-medium">{item.name}</p>
+                                                        <p className="text-xs text-slate-500">{item.isCustom ? 'Custom Item' : item.sku}</p>
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-4">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-xs text-slate-400">Qty</span>
-                                                        <span className="text-white font-mono">{item.qty}</span>
+                                                    <div className="flex items-center gap-2 bg-[#1b2127] rounded px-1">
+                                                        <button onClick={() => updateCartQty(idx, -1)} className="text-slate-500 hover:text-white px-1 text-xs">-</button>
+                                                        <span className="text-xs text-white font-mono w-4 text-center">{item.qty}</span>
+                                                        <button onClick={() => updateCartQty(idx, 1)} className="text-slate-500 hover:text-white px-1 text-xs">+</button>
                                                     </div>
-                                                    <div className="flex flex-col items-end w-20">
-                                                        <span className="text-xs text-slate-400">Price</span>
-                                                        <span className="text-white font-mono">${item.price}</span>
+                                                    <div className="text-right w-16">
+                                                        <p className="text-white font-mono font-bold">${(item.price * item.qty).toFixed(2)}</p>
                                                     </div>
-                                                    <button type="button" onClick={() => setCart(cart.filter((_, i) => i !== idx))} className="text-slate-500 hover:text-red-400">
-                                                        <span className="material-symbols-outlined text-lg">delete</span>
-                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
@@ -391,9 +596,22 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                     </div>
                                 </div>
 
-                                <div className="pt-4 flex justify-end">
-                                    <button type="submit" className="px-8 py-3 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg shadow-lg flex items-center gap-2">
-                                        <span className="material-symbols-outlined">check_circle</span> Complete Order
+                                <div className="pt-4 flex flex-col items-end gap-2">
+                                    {checkoutError && (
+                                        <p className="text-red-400 text-sm font-bold flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-sm">error</span> {checkoutError}
+                                        </p>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={isProcessing}
+                                        className="px-8 py-3 bg-primary hover:bg-primary/90 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-lg flex items-center gap-2"
+                                    >
+                                        {isProcessing ? (
+                                            <><span className="material-symbols-outlined animate-spin">progress_activity</span> Processing...</>
+                                        ) : (
+                                            <><span className="material-symbols-outlined">check_circle</span> Complete Order</>
+                                        )}
                                     </button>
                                 </div>
                             </form>
@@ -434,106 +652,108 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div >
 
                 {/* Invoice Modal */}
-                {showInvoice && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-                        <div id="invoice-modal" className="bg-white text-slate-900 rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
-                            {/* Print Toolbar */}
-                            <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center print:hidden">
-                                <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-green-600">check_circle</span> Order Created Successfully
-                                </span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded flex items-center gap-1 hover:bg-slate-700">
-                                        <span className="material-symbols-outlined text-sm">print</span> Print
-                                    </button>
-                                    <button onClick={() => setShowInvoice(false)} className="px-3 py-1.5 bg-slate-200 text-slate-600 text-xs font-bold rounded hover:bg-slate-300">
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Invoice Content */}
-                            <div className="p-8 overflow-y-auto" id="invoice-area">
-                                <div className="flex justify-between items-start mb-8">
-                                    <div>
-                                        <h1 className="text-2xl font-black text-slate-900 tracking-tight">INVOICE</h1>
-                                        <p className="text-slate-500 font-medium">#INV-{Math.floor(Math.random() * 10000)}</p>
+                {
+                    showInvoice && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                            <div id="invoice-modal" className="bg-white text-slate-900 rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                                {/* Print Toolbar */}
+                                <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center print:hidden">
+                                    <span className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-green-600">check_circle</span> Order Created Successfully
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded flex items-center gap-1 hover:bg-slate-700">
+                                            <span className="material-symbols-outlined text-sm">print</span> Print
+                                        </button>
+                                        <button onClick={() => setShowInvoice(false)} className="px-3 py-1.5 bg-slate-200 text-slate-600 text-xs font-bold rounded hover:bg-slate-300">
+                                            Close
+                                        </button>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="flex items-center justify-end gap-2 mb-1">
-                                            <div className="size-6 bg-primary rounded-md flex items-center justify-center"><span className="material-symbols-outlined text-white text-xs">inventory_2</span></div>
-                                            <span className="font-bold text-slate-900">AIMS Inc.</span>
+                                </div>
+
+                                {/* Invoice Content */}
+                                <div className="p-8 overflow-y-auto" id="invoice-area">
+                                    <div className="flex justify-between items-start mb-8">
+                                        <div>
+                                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">INVOICE</h1>
+                                            <p className="text-slate-500 font-medium">#INV-{Math.floor(Math.random() * 10000)}</p>
                                         </div>
-                                        <p className="text-xs text-slate-500">123 Tech Boulevard</p>
-                                        <p className="text-xs text-slate-500">San Francisco, CA 94105</p>
+                                        <div className="text-right">
+                                            <div className="flex items-center justify-end gap-2 mb-1">
+                                                <div className="size-6 bg-primary rounded-md flex items-center justify-center"><span className="material-symbols-outlined text-white text-xs">inventory_2</span></div>
+                                                <span className="font-bold text-slate-900">AIMS Inc.</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500">123 Tech Boulevard</p>
+                                            <p className="text-xs text-slate-500">San Francisco, CA 94105</p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-8 mb-8">
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bill To</p>
-                                        <h3 className="font-bold text-slate-900 text-lg">{customerName || 'Guest Customer'}</h3>
-                                        <p className="text-sm text-slate-600">{customerEmail || 'No email provided'}</p>
-                                        <p className="text-sm text-slate-600">{customerPhone || 'No phone provided'}</p>
+                                    <div className="grid grid-cols-2 gap-8 mb-8">
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Bill To</p>
+                                            <h3 className="font-bold text-slate-900 text-lg">{customerName || 'Guest Customer'}</h3>
+                                            <p className="text-sm text-slate-600">{customerEmail || 'No email provided'}</p>
+                                            <p className="text-sm text-slate-600">{customerPhone || 'No phone provided'}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date</p>
+                                            <p className="font-medium text-slate-900">{new Date().toLocaleDateString()}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Date</p>
-                                        <p className="font-medium text-slate-900">{new Date().toLocaleDateString()}</p>
-                                    </div>
-                                </div>
 
-                                <table className="w-full text-left text-sm mb-8">
-                                    <thead className="border-b-2 border-slate-100">
-                                        <tr>
-                                            <th className="py-3 font-bold text-slate-700">Item Description</th>
-                                            <th className="py-3 font-bold text-slate-700 text-right">Qty</th>
-                                            <th className="py-3 font-bold text-slate-700 text-right">Unit Price</th>
-                                            <th className="py-3 font-bold text-slate-700 text-right">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {cart.map((item, i) => (
-                                            <tr key={i}>
-                                                <td className="py-3">
-                                                    <p className="font-medium text-slate-900">{item.name}</p>
-                                                    <p className="text-xs text-slate-500">{item.sku}</p>
-                                                </td>
-                                                <td className="py-3 text-right text-slate-600">{item.qty}</td>
-                                                <td className="py-3 text-right text-slate-600">${item.price.toFixed(2)}</td>
-                                                <td className="py-3 text-right font-medium text-slate-900">${(item.price * item.qty).toFixed(2)}</td>
+                                    <table className="w-full text-left text-sm mb-8">
+                                        <thead className="border-b-2 border-slate-100">
+                                            <tr>
+                                                <th className="py-3 font-bold text-slate-700">Item Description</th>
+                                                <th className="py-3 font-bold text-slate-700 text-right">Qty</th>
+                                                <th className="py-3 font-bold text-slate-700 text-right">Unit Price</th>
+                                                <th className="py-3 font-bold text-slate-700 text-right">Amount</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {cart.map((item, i) => (
+                                                <tr key={i}>
+                                                    <td className="py-3">
+                                                        <p className="font-medium text-slate-900">{item.name}</p>
+                                                        <p className="text-xs text-slate-500">{item.sku}</p>
+                                                    </td>
+                                                    <td className="py-3 text-right text-slate-600">{item.qty}</td>
+                                                    <td className="py-3 text-right text-slate-600">${item.price.toFixed(2)}</td>
+                                                    <td className="py-3 text-right font-medium text-slate-900">${(item.price * item.qty).toFixed(2)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
 
-                                <div className="flex justify-end">
-                                    <div className="w-64 space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span className="font-medium text-slate-500">Subtotal</span>
-                                            <span className="font-medium text-slate-900">${calculateTotal().toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="font-medium text-slate-500">Tax (8%)</span>
-                                            <span className="font-medium text-slate-900">${(calculateTotal() * 0.08).toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-lg pt-2 border-t border-slate-200">
-                                            <span className="font-bold text-slate-900">Total</span>
-                                            <span className="font-bold text-primary">${(calculateTotal() * 1.08).toFixed(2)}</span>
+                                    <div className="flex justify-end">
+                                        <div className="w-64 space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="font-medium text-slate-500">Subtotal</span>
+                                                <span className="font-medium text-slate-900">${calculateTotal().toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="font-medium text-slate-500">Tax (8%)</span>
+                                                <span className="font-medium text-slate-900">${(calculateTotal() * 0.08).toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-lg pt-2 border-t border-slate-200">
+                                                <span className="font-bold text-slate-900">Total</span>
+                                                <span className="font-bold text-primary">${(calculateTotal() * 1.08).toFixed(2)}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="mt-12 pt-6 border-t border-slate-100 text-center">
-                                    <p className="text-xs text-slate-400">Thank you for your business.</p>
+                                    <div className="mt-12 pt-6 border-t border-slate-100 text-center">
+                                        <p className="text-xs text-slate-400">Thank you for your business.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
         );
     }
 
