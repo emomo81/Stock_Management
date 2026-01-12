@@ -72,12 +72,15 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
 
             setVendors(vendorsData);
 
+            // Allow locally passed items or fallback to state items (though state might be stale)
+            const currentItems = itemsData || items;
+
             // Calculate Forecast only if we have items
-            if (items.length > 0) {
+            if (currentItems.length > 0) {
                 const now = new Date();
                 const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
 
-                const forecast = items.map((item: any) => {
+                const forecast = currentItems.map((item: any) => {
                     // Filter OUT transactions for this item in last 30 days
                     const outTx = transData.filter((t: any) =>
                         t.itemId === item.id &&
