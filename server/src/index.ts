@@ -33,7 +33,7 @@ app.get('/api/vendors', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch vendors' });
     }
 });
-.j
+.
 // Add Transaction (Internal or Audit)
 app.post('/api/transactions', async (req, res) => {
     try {
