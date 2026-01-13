@@ -9,7 +9,7 @@ import StockOperations from './screens/StockOperations';
 import Users from './screens/Users';
 
 import { View, UserRole } from './types';
-
+// stock managment system
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [userRole, setUserRole] = useState<UserRole>('admin');
