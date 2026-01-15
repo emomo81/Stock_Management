@@ -51,7 +51,7 @@ const App: React.FC = () => {
   if (currentView === 'scanner') {
     return <Admin view={currentView} userRole={userRole} setView={setCurrentView} />;
   }
-
+// v
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-white font-sans">
       {/* Mobile Sidebar Overlay */}

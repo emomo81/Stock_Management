@@ -1,180 +1,172 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { UserRole } from '../types';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface AnalyticsProps {
     userRole: UserRole;
 }
 
+const profitData = [
+    { name: 'Mon', revenue: 10, profit: 4 },
+    { name: 'Tue', revenue: 15, profit: 7 },
+    { name: 'Wed', revenue: 8, profit: 3 },
+    { name: 'Thu', revenue: 22, profit: 12 },
+    { name: 'Fri', revenue: 18, profit: 9 },
+    { name: 'Sat', revenue: 25, profit: 15 },
+    { name: 'Sun', revenue: 12, profit: 5 },
+];
+
 const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
-    const [items, setItems] = useState<any[]>([]);
-    const [transactions, setTransactions] = useState<any[]>([]);
-    const [forecastData, setForecastData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [itemsRes, transRes] = await Promise.all([
-                    fetch('http://localhost:5001/api/inventory'),
-                    fetch('http://localhost:5001/api/transactions')
-                ]);
-
-                const itemsData = await itemsRes.json();
-                const transData = await transRes.json();
-
-                setItems(itemsData);
-                setTransactions(transData);
-
-                // Calculate Forecast
-                if (Array.isArray(itemsData) && Array.isArray(transData)) {
-                    const now = new Date();
-                    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-
-                    const forecast = itemsData.map((item: any) => {
-                        const outTx = transData.filter((t: any) =>
-                            t.itemId === item.id &&
-                            t.type === 'OUT' &&
-                            new Date(t.date || '') >= thirtyDaysAgo
-                        );
-
-                        const totalSold = outTx.reduce((sum: number, t: any) => sum + (t.qty || 0), 0);
-                        const velocity = totalSold / 30; // Units per day
-                        const daysRemaining = velocity > 0 ? Math.floor(item.stock / velocity) : 999;
-
-                        let status = 'Healthy';
-                        let statusColor = 'text-emerald-500';
-                        if (daysRemaining < 7) { status = 'Critical'; statusColor = 'text-red-500'; }
-                        else if (daysRemaining < 14) { status = 'Low'; statusColor = 'text-yellow-500'; }
-
-                        const targetStock = Math.ceil(velocity * 30);
-                        const reorderQty = Math.max(0, targetStock - item.stock);
-
-                        return {
-                            ...item,
-                            velocity: velocity.toFixed(2),
-                            daysRemaining: daysRemaining === 999 ? '∞' : daysRemaining,
-                            status,
-                            statusColor,
-                            reorderQty,
-                            totalSold
-                        };
-                    }).sort((a: any, b: any) => b.velocity - a.velocity); // Sort by highest velocity
-
-                    setForecastData(forecast);
-                }
-            } catch (error) {
-                console.error("Failed to load analytics data", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    if (loading) return <div className="p-8 text-white">Loading Forecasting Engine...</div>;
-
-    const topMovers = forecastData.slice(0, 5);
-    const lowStockCount = forecastData.filter(i => i.status === 'Critical' || i.status === 'Low').length;
-    const totalValue = items.reduce((sum, item) => sum + (item.stock * (parseFloat(item.price) || 0)), 0);
+    if (userRole === 'staff') {
+        return (
+            <div className="flex-1 flex items-center justify-center p-8 bg-[#101922] h-full">
+                <div className="glass-panel w-full max-w-lg p-10 rounded-2xl flex flex-col items-center text-center border-t border-white/10 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent"></div>
+                    <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                        <span className="material-symbols-outlined text-[40px] text-red-500">lock_person</span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-2">Access Restricted</h3>
+                    <p className="text-slate-400 mb-8 max-w-sm leading-relaxed">
+                        You do not have permission to view sensitive financial data such as costs, profits, and margins.
+                    </p>
+                    <div className="bg-white/5 border border-white/5 rounded-lg p-4 text-left w-full mb-6">
+                        <div className="flex items-start gap-3">
+                            <span className="material-symbols-outlined text-yellow-500 text-[20px] mt-0.5">info</span>
+                            <div>
+                                <p className="text-sm font-bold text-white mb-1">Role: Staff</p>
+                                <p className="text-xs text-slate-400">Restricted to Admin and Manager roles only.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">
+                        Request Access
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#101922]">
-            <div className="max-w-7xl mx-auto flex flex-col gap-8">
+            <div className="max-w-7xl mx-auto flex flex-col gap-6">
                 <div className="flex justify-between items-end">
                     <div>
-                        <h2 className="text-3xl font-black text-white tracking-tight">Smart Forecasting</h2>
-                        <p className="text-slate-400 text-base">AI-driven inventory optimization and reorder insights.</p>
+                        <h2 className="text-3xl font-black text-white tracking-tight">Profit Analysis</h2>
+                        <p className="text-slate-400 text-base">Real-time margin tracking powered by AI</p>
+                    </div>
+                    <button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
+                        <span className="material-symbols-outlined text-[20px]">description</span> Generate Report
+                    </button>
+                </div>
+
+                {/* Top Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="glass-panel rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-symbols-outlined text-4xl text-white">payments</span>
+                        </div>
+                        <p className="text-slate-400 text-sm font-medium">Total Revenue</p>
+                        <h3 className="text-3xl font-bold text-white">$124,500</h3>
+                        <span className="text-[#0bda5b] text-sm font-medium bg-[#0bda5b]/10 w-fit px-2 py-0.5 rounded flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">trending_up</span> +12%
+                        </span>
+                    </div>
+                    <div className="glass-panel rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-symbols-outlined text-4xl text-white">monetization_on</span>
+                        </div>
+                        <p className="text-slate-400 text-sm font-medium">Gross Profit</p>
+                        <h3 className="text-3xl font-bold text-white">$45,200</h3>
+                        <span className="text-[#0bda5b] text-sm font-medium bg-[#0bda5b]/10 w-fit px-2 py-0.5 rounded flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">trending_up</span> +5%
+                        </span>
+                    </div>
+                    <div className="glass-panel rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-symbols-outlined text-4xl text-white">pie_chart</span>
+                        </div>
+                        <p className="text-slate-400 text-sm font-medium">Net Margin</p>
+                        <h3 className="text-3xl font-bold text-white">36.3%</h3>
+                        <span className="text-[#0bda5b] text-sm font-medium bg-[#0bda5b]/10 w-fit px-2 py-0.5 rounded flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">trending_up</span> +2.1%
+                        </span>
+                    </div>
+                    {/* AI Insight */}
+                    <div className="glass-panel rounded-xl p-1 bg-gradient-to-br from-primary/20 to-purple-600/20 border-primary/30">
+                        <div className="bg-[#101922]/90 h-full w-full rounded-[10px] p-4 flex flex-col justify-between backdrop-blur-sm">
+                            <div className="flex justify-between items-start">
+                                <p className="text-primary text-sm font-bold flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[16px]">auto_awesome</span> AI Insight
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-white text-lg font-bold leading-tight">Margin Surge</p>
+                                <p className="text-slate-400 text-xs mt-1">Electronics category is trending up significantly this week.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="glass-panel p-6 rounded-xl flex flex-col gap-2">
-                        <p className="text-slate-400 text-sm font-bold uppercase">Total Inventory Value</p>
-                        <h3 className="text-3xl font-mono font-bold text-white">${totalValue.toLocaleString()}</h3>
+                {/* Charts & Breakdown */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Main Chart */}
+                    <div className="glass-panel rounded-xl p-6 lg:col-span-2 flex flex-col gap-4 min-h-[300px]">
+                        <h3 className="text-white font-bold text-lg">Revenue vs. Profit Trend</h3>
+                        <div className="flex-1 w-full min-h-[300px] min-w-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={profitData}>
+                                    <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1b2127', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                                    <Bar dataKey="revenue" stackId="a" fill="#334155" radius={[0, 0, 0, 0]} barSize={32} />
+                                    <Bar dataKey="profit" stackId="a" fill="#1985f0" radius={[4, 4, 0, 0]} barSize={32}>
+                                        {profitData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fillOpacity={0.8 + (index * 0.02)} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    <div className="glass-panel p-6 rounded-xl flex flex-col gap-2">
-                        <p className="text-slate-400 text-sm font-bold uppercase">Low Stock Alerts</p>
-                        <h3 className={`text-3xl font-mono font-bold ${lowStockCount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                            {lowStockCount} <span className="text-sm text-slate-500 font-sans font-normal">items</span>
-                        </h3>
-                    </div>
-                    <div className="glass-panel p-6 rounded-xl flex flex-col gap-2">
-                        <p className="text-slate-400 text-sm font-bold uppercase">Top Mover (30d)</p>
-                        <h3 className="text-2xl font-bold text-white truncate">{topMovers[0]?.name || 'N/A'}</h3>
-                        <p className="text-xs text-primary">{topMovers[0]?.totalSold || 0} units sold</p>
-                    </div>
-                </div>
 
-                {/* Charts */}
-                <div className="glass-panel p-6 rounded-xl min-h-[400px] flex flex-col">
-                    <h3 className="text-white font-bold text-lg mb-6">Top Moving Items (Velocity)</h3>
-                    <div className="flex-1 w-full min-h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topMovers} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                <XAxis type="number" stroke="#64748b" />
-                                <YAxis dataKey="name" type="category" stroke="#fff" width={100} tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                    contentStyle={{ backgroundColor: '#1b2127', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                                />
-                                <Bar dataKey="totalSold" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20}>
-                                    {topMovers.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#3b82f6'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
+                    {/* Category Breakdown & Optimization */}
+                    <div className="flex flex-col gap-6">
+                        <div className="glass-panel rounded-xl p-6 flex flex-col">
+                            <h3 className="text-white font-bold text-lg mb-4">Profit by Category</h3>
+                            <div className="space-y-4">
+                                {[
+                                    { name: 'Electronics', val: '$20.3k', pct: '45%', color: 'bg-blue-500' },
+                                    { name: 'Apparel', val: '$12.6k', pct: '28%', color: 'bg-purple-500' },
+                                    { name: 'Home', val: '$7.6k', pct: '17%', color: 'bg-emerald-500' },
+                                ].map((cat, i) => (
+                                    <div key={i} className="flex flex-col gap-1">
+                                        <div className="flex justify-between text-sm text-white">
+                                            <span>{cat.name}</span>
+                                            <span className="font-bold">{cat.val}</span>
+                                        </div>
+                                        <div className="w-full bg-white/10 rounded-full h-1.5">
+                                            <div className={`h-1.5 rounded-full ${cat.color}`} style={{ width: cat.pct }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-                {/* Detailed Table */}
-                <div className="glass-panel rounded-xl overflow-hidden">
-                    <div className="p-6 border-b border-white/10">
-                        <h3 className="text-white font-bold text-lg">Reorder Recommendations</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-400">
-                            <thead className="bg-white/5 uppercase font-bold text-xs tracking-wider text-slate-300">
-                                <tr>
-                                    <th className="p-4">Item Name</th>
-                                    <th className="p-4 text-center">Stock</th>
-                                    <th className="p-4 text-center">Velocity /Day</th>
-                                    <th className="p-4 text-center">Days Left</th>
-                                    <th className="p-4 text-center">Reorder Qty</th>
-                                    <th className="p-4 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {forecastData.length > 0 ? forecastData.map((item) => (
-                                    <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-4 font-medium text-white">{item.name}</td>
-                                        <td className="p-4 text-center font-mono">{item.stock}</td>
-                                        <td className="p-4 text-center font-mono">{item.velocity}</td>
-                                        <td className="p-4 text-center font-mono">{item.daysRemaining}</td>
-                                        <td className="p-4 text-center">
-                                            {item.reorderQty > 0 ? (
-                                                <span className="text-primary font-bold">+{item.reorderQty}</span>
-                                            ) : (
-                                                <span className="text-slate-600">-</span>
-                                            )}
-                                        </td>
-                                        <td className={`p-4 text-center font-bold ${item.statusColor}`}>
-                                            {item.status}
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={6} className="p-8 text-center text-slate-500">
-                                            No data available for forecasting. Use the app to generate sales history.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                        <div className="glass-panel rounded-xl p-5 border border-primary/30 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>
+                            <div className="flex flex-col gap-3 relative z-10">
+                                <div className="flex items-center gap-2 text-primary">
+                                    <span className="material-symbols-outlined text-[20px]">psychology</span>
+                                    <span className="text-sm font-bold uppercase tracking-wider">Optimization</span>
+                                </div>
+                                <p className="text-white font-medium text-sm leading-snug">
+                                    Reorder <span className="text-primary">SKU-123</span> immediately to capitalize on a 15% margin surge.
+                                </p>
+                                <button className="mt-2 w-full flex items-center justify-center gap-2 bg-primary text-white text-xs font-bold uppercase py-2.5 rounded-lg hover:bg-primary/90 transition-colors">
+                                    View Recommendation
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
