@@ -227,8 +227,8 @@ router.get('/analytics', async (req, res) => {
 
             profitData.push({
                 name: dayName,
-                revenue: Math.round(dayRevenue / 1000) || (Math.random() * 20 + 5), // Fallback to simulated if no data
-                profit: Math.round((dayRevenue - dayCost) / 1000) || (Math.random() * 10 + 2)
+                revenue: Math.round(dayRevenue / 100) / 10, // Convert to K (thousands)
+                profit: Math.round((dayRevenue - dayCost) / 100) / 10
             });
         }
 
