@@ -35,6 +35,11 @@ const App: React.FC = () => {
   const [viewParams, setViewParams] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{ icon: string, color: string, bg: string, title: string, desc: string, time: string }>>([]);
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+  };
 
   // Logout Handler
   const handleLogout = () => {
@@ -123,7 +128,9 @@ const App: React.FC = () => {
                 className={`relative size-9 flex items-center justify-center rounded-full transition-colors ${showNotifications ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-slate-400 hover:text-white'}`}
               >
                 <span className="material-symbols-outlined text-[20px]">notifications</span>
-                <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border border-[#101922]"></span>
+                {notifications.length > 0 && (
+                  <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border border-[#101922]"></span>
+                )}
               </button>
 
               {/* Notifications Dropdown */}
@@ -131,25 +138,30 @@ const App: React.FC = () => {
                 <div className="absolute top-full right-0 mt-2 w-80 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="p-3 border-b border-white/5 flex justify-between items-center bg-[#101922]">
                     <h3 className="text-sm font-bold text-white">Notifications</h3>
-                    <button className="text-[10px] text-primary hover:underline">Mark all read</button>
+                    {notifications.length > 0 && (
+                      <button onClick={handleClearNotifications} className="text-[10px] text-primary hover:underline">Mark all read</button>
+                    )}
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    {[
-                      { icon: 'warning', color: 'text-red-500', bg: 'bg-red-500/10', title: 'Critical Stock Alert', desc: '3 items below safety levels', time: '2m ago' },
-                      { icon: 'shopping_cart', color: 'text-emerald-500', bg: 'bg-emerald-500/10', title: 'New Order #1023', desc: '$450.00 - Acme Corp', time: '15m ago' },
-                      { icon: 'person_add', color: 'text-blue-500', bg: 'bg-blue-500/10', title: 'New User', desc: 'Sarah J. joined the team', time: '1h ago' },
-                    ].map((notif, i) => (
-                      <div key={i} className="p-3 hover:bg-white/5 border-b border-white/5 last:border-0 cursor-pointer flex gap-3 transition-colors">
-                        <div className={`size-8 rounded-lg ${notif.bg} flex items-center justify-center shrink-0`}>
-                          <span className={`material-symbols-outlined text-[18px] ${notif.color}`}>{notif.icon}</span>
+                    {notifications.length > 0 ? (
+                      notifications.map((notif, i) => (
+                        <div key={i} className="p-3 hover:bg-white/5 border-b border-white/5 last:border-0 cursor-pointer flex gap-3 transition-colors">
+                          <div className={`size-8 rounded-lg ${notif.bg} flex items-center justify-center shrink-0`}>
+                            <span className={`material-symbols-outlined text-[18px] ${notif.color}`}>{notif.icon}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">{notif.title}</p>
+                            <p className="text-xs text-slate-400">{notif.desc}</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{notif.time}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-white">{notif.title}</p>
-                          <p className="text-xs text-slate-400">{notif.desc}</p>
-                          <p className="text-[10px] text-slate-500 mt-1">{notif.time}</p>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-slate-500 flex flex-col items-center">
+                        <span className="material-symbols-outlined text-4xl mb-2 opacity-50">notifications_off</span>
+                        <p className="text-sm">No new notifications</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                   <div className="p-2 bg-[#101922] text-center">
                     <button className="text-xs text-slate-400 hover:text-white transition-colors">View All Activity</button>
