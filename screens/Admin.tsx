@@ -268,6 +268,238 @@ const DataExportView: React.FC = () => {
     );
 };
 
+// Mobile Scanner View Component
+const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setView }) => {
+    const [scannedItem, setScannedItem] = useState<InventoryItem | null>(null);
+    const [barcodeInput, setBarcodeInput] = useState('');
+    const [isScanning, setIsScanning] = useState(false);
+    const [stockMode, setStockMode] = useState<'in' | 'out'>('in');
+    const [qty, setQty] = useState(1);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+    const handleScan = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!barcodeInput.trim()) return;
+
+        setIsScanning(true);
+        setFeedback(null);
+        setScannedItem(null);
+
+        try {
+            // In a real app, this would query by barcode. Here we'll search inventory by SKU or Name
+            const res = await fetch('http://localhost:5001/api/inventory');
+            if (res.ok) {
+                const items: InventoryItem[] = await res.json();
+                // Simulating a scan by matching SKU partial or name
+                const found = items.find(i =>
+                    i.sku.toLowerCase().includes(barcodeInput.toLowerCase()) ||
+                    `AIMS-${i.sku}`.toLowerCase() === barcodeInput.toLowerCase()
+                );
+
+                if (found) {
+                    setScannedItem(found);
+                    // vibration feedback simulation
+                    if (navigator.vibrate) navigator.vibrate(200);
+                } else {
+                    setFeedback({ type: 'error', message: 'Product not found' });
+                }
+            }
+        } catch (error) {
+            console.error('Scan failed:', error);
+            setFeedback({ type: 'error', message: 'Connection error' });
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
+    const handleUpdateStock = async () => {
+        if (!scannedItem) return;
+
+        try {
+            const newQty = stockMode === 'in'
+                ? scannedItem.qty + qty
+                : Math.max(0, scannedItem.qty - qty);
+
+            // Using the items endpoint to update
+            const res = await fetch(`http://localhost:5001/api/items/${scannedItem.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...scannedItem, qty: newQty })
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                setScannedItem(updated);
+                setFeedback({ type: 'success', message: `Stock successfully updated (New: ${updated.qty})` });
+                setQty(1);
+                // Clear success message after 3s
+                setTimeout(() => setFeedback(null), 3000);
+            } else {
+                setFeedback({ type: 'error', message: 'Failed to update stock' });
+            }
+        } catch (error) {
+            setFeedback({ type: 'error', message: 'Update failed' });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+            {/* Camera Feed Simulation / Input Area */}
+            <div className="absolute inset-0 bg-[#0f172a]">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2000&auto=format&fit=crop')] bg-cover opacity-10"></div>
+            </div>
+
+            {/* UI Overlay */}
+            <div className="relative z-10 w-full h-full flex flex-col justify-between p-6 max-w-md mx-auto">
+
+                {/* Header */}
+                <div className="flex justify-between items-center">
+                    <button onClick={() => setView('dashboard')} className="size-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                    <div className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-sm font-medium border border-white/10">
+                        Scanner Active
+                    </div>
+                    <button className="size-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition">
+                        <span className="material-symbols-outlined">flash_on</span>
+                    </button>
+                </div>
+
+                {/* Main Scanning Area */}
+                <div className="flex-1 flex flex-col items-center justify-center -mt-10">
+                    {!scannedItem ? (
+                        <div className="w-full space-y-8">
+                            {/* Scanning View */}
+                            <div className="relative w-64 h-64 mx-auto border-2 border-primary/50 rounded-3xl flex items-center justify-center overflow-hidden">
+                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-xl"></div>
+                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-xl"></div>
+                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-xl"></div>
+                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-xl"></div>
+                                <div className="w-full h-0.5 bg-primary absolute top-1/2 shadow-[0_0_20px_rgba(25,133,240,0.8)] animate-pulse"></div>
+
+                                <span className="material-symbols-outlined text-6xl text-white/10">qr_code_scanner</span>
+                            </div>
+
+                            <form onSubmit={handleScan} className="w-full relative">
+                                <input
+                                    type="text"
+                                    value={barcodeInput}
+                                    onChange={(e) => setBarcodeInput(e.target.value)}
+                                    placeholder="Enter SKU or Scan..."
+                                    className="w-full bg-white/10 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-center text-lg font-mono"
+                                    autoFocus
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!barcodeInput}
+                                    className="absolute right-2 top-2 bottom-2 bg-primary text-white rounded-lg px-4 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    GO
+                                </button>
+                            </form>
+
+                            {feedback && (
+                                <div className={`p-4 rounded-xl text-center text-sm font-bold animate-in fade-in slide-in-from-bottom-4 ${feedback.type === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                                    }`}>
+                                    {feedback.message}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Product Found View */
+                        <div className="w-full animate-in zoom-in-95 duration-200">
+                            <div className="glass-panel p-6 rounded-2xl border border-white/10 bg-[#1e293b]/80 backdrop-blur-xl shadow-2xl">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Product Found</p>
+                                        <h3 className="text-xl font-bold text-white leading-tight">{scannedItem.name}</h3>
+                                        <p className="text-primary font-mono text-sm mt-1">{scannedItem.sku}</p>
+                                    </div>
+                                    <button onClick={() => { setScannedItem(null); setBarcodeInput(''); setFeedback(null); }} className="text-slate-400 hover:text-white p-2">
+                                        <span className="material-symbols-outlined">close</span>
+                                    </button>
+                                </div>
+
+                                <div className="bg-black/30 rounded-xl p-4 mb-6 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-slate-400 text-xs">Current Stock</p>
+                                        <p className="text-2xl font-bold text-white">{scannedItem.qty}</p>
+                                    </div>
+                                    <div className="h-8 w-px bg-white/10"></div>
+                                    <div className="text-right">
+                                        <p className="text-slate-400 text-xs">Price</p>
+                                        <p className="text-2xl font-bold text-emerald-400">${scannedItem.price}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex bg-black/20 p-1 rounded-lg">
+                                        <button
+                                            onClick={() => setStockMode('in')}
+                                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${stockMode === 'in' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Stock In (+)
+                                        </button>
+                                        <button
+                                            onClick={() => setStockMode('out')}
+                                            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${stockMode === 'out' ? 'bg-red-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Stock Out (-)
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            onClick={() => setQty(Math.max(1, qty - 1))}
+                                            className="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition"
+                                        >
+                                            <span className="material-symbols-outlined">remove</span>
+                                        </button>
+                                        <input
+                                            type="number"
+                                            value={qty}
+                                            onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                            className="flex-1 bg-transparent text-center text-3xl font-bold text-white outline-none border-b border-white/10 py-1"
+                                        />
+                                        <button
+                                            onClick={() => setQty(qty + 1)}
+                                            className="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 active:scale-95 transition"
+                                        >
+                                            <span className="material-symbols-outlined">add</span>
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        onClick={handleUpdateStock}
+                                        className={`w-full py-4 rounded-xl font-bold text-white shadow-lg text-lg flex items-center justify-center gap-2 transform active:scale-[0.98] transition-all ${stockMode === 'in' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                                            }`}
+                                    >
+                                        <span className="material-symbols-outlined">check_circle</span>
+                                        Confirm Update
+                                    </button>
+
+                                    {feedback && (
+                                        <p className={`text-center text-sm font-bold ${feedback.type === 'success' ? 'text-emerald-400' : 'text-red-400'
+                                            }`}>
+                                            {feedback.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="text-center">
+                    <p className="text-slate-500 text-xs">Point camera at barcode or enter SKU manually</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Barcodes View Component
 interface InventoryItem {
     id: string;
@@ -614,46 +846,9 @@ const Admin: React.FC<AdminProps> = ({ view, userRole, setView }) => {
         return <DataExportView />;
     }
 
-    // Mobile Barcode Scanner View (Simulated)
+    // Mobile Barcode Scanner View
     if (view === 'scanner') {
-        return (
-            <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-                {/* Camera Feed Simulation */}
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2000&auto=format&fit=crop')] bg-cover opacity-60"></div>
-
-                {/* UI Overlay */}
-                <div className="relative z-10 w-full h-full flex flex-col justify-between p-6">
-                    <div className="flex justify-between items-center">
-                        <button onClick={() => setView('dashboard')} className="size-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white"><span className="material-symbols-outlined">close</span></button>
-                        <div className="bg-black/50 backdrop-blur-md px-4 py-1 rounded-full text-white text-sm font-medium">Scan Item</div>
-                        <button className="size-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white"><span className="material-symbols-outlined">flash_on</span></button>
-                    </div>
-
-                    {/* Scan Frame */}
-                    <div className="relative w-64 h-64 mx-auto border-2 border-primary/50 rounded-2xl flex items-center justify-center">
-                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary -mt-1 -ml-1 rounded-tl-lg"></div>
-                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary -mt-1 -mr-1 rounded-tr-lg"></div>
-                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary -mb-1 -ml-1 rounded-bl-lg"></div>
-                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary -mb-1 -mr-1 rounded-br-lg"></div>
-                        <div className="w-full h-0.5 bg-primary absolute top-1/2 shadow-[0_0_10px_rgba(25,133,240,0.8)] animate-pulse"></div>
-                    </div>
-
-                    {/* Bottom Card */}
-                    <div className="glass-panel p-4 rounded-2xl animate-in slide-in-from-bottom duration-500">
-                        <div className="flex gap-4 items-center">
-                            <div className="size-16 bg-white/10 rounded-lg flex-none"></div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-white font-bold truncate">Steel Ball Bearings</h4>
-                                <p className="text-primary text-xs font-mono">UPC: 88349-112</p>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <button className="bg-primary text-white p-2 rounded-lg flex items-center gap-1 text-xs font-bold"><span className="material-symbols-outlined text-sm">add</span> Stock</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )
+        return <MobileScannerView setView={setView} />;
     }
 
     // Barcode Management
