@@ -95,19 +95,31 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
             csvContent += `${c.name},${c.value},${c.percentage}%\n`;
         });
 
-        // Download the file using data URI approach for better browser compatibility
-        const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `profit_report_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        link.style.position = 'absolute';
-        document.body.appendChild(link);
-        link.click();
-        // Small delay before cleanup to ensure download starts
-        setTimeout(() => {
+        // Create Blob and trigger download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const filename = `profit_report_${new Date().toISOString().split('T')[0]}.csv`;
+
+        // Check for IE/Edge legacy
+        if ((navigator as any).msSaveBlob) {
+            (navigator as any).msSaveBlob(blob, filename);
+        } else {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            // Append to body, click, then remove
+            document.body.appendChild(link);
+            // Use MouseEvent for better compatibility
+            const event = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            link.dispatchEvent(event);
             document.body.removeChild(link);
-        }, 100);
+            // Revoke URL after a short delay
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
     };
 
     if (userRole === 'staff') {

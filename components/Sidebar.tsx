@@ -71,7 +71,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, isOpe
         <NavItem view="analytics" icon="monitoring" label="Profit Analyzer" />
 
         <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6">Management</p>
-        <NavItem view="families" icon="category" label="Product Families" />
         {userRole !== 'staff' && (
           <>
             <NavItem view="users" icon="group" label="Team Members" />
