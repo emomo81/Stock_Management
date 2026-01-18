@@ -44,6 +44,21 @@ router.get('/', async (req, res) => {
                 color: ['emerald', 'blue', 'purple', 'amber', 'rose'][index % 5]
             }));
 
+        // Dead Stock - items with high stock that aren't moving (simulated as high stock items)
+        const deadStock = items
+            .filter(item => item.stock > 30) // Items with high stock
+            .slice(0, 5)
+            .map((item) => {
+                const price = parseFloat(String(item.price).replace('$', '').replace(',', '')) || 0;
+                return {
+                    name: item.name,
+                    sku: item.sku,
+                    stock: item.stock,
+                    value: (price * item.stock).toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
+                    days: `${Math.floor(Math.random() * 60) + 60} Days` // Simulated days without sale
+                };
+            });
+
         res.json({
             stats: {
                 totalSKUs,
@@ -52,7 +67,8 @@ router.get('/', async (req, res) => {
                 totalValue: totalValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
             },
             chartData,
-            fastMovers
+            fastMovers,
+            deadStock
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching stats', error });
