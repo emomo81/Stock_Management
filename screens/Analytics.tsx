@@ -44,6 +44,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
     const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showRecommendation, setShowRecommendation] = useState(false);
 
     useEffect(() => {
         fetchAnalytics();
@@ -63,6 +64,47 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
             setError('Failed to load analytics data. Please check your connection.');
             setLoading(false);
         }
+    };
+
+    // Generate and download CSV report
+    const generateReport = () => {
+        if (!analyticsData) return;
+
+        const { stats, profitData, categoryBreakdown } = analyticsData;
+
+        // Create CSV content
+        let csvContent = "PROFIT ANALYSIS REPORT\n";
+        csvContent += `Generated: ${new Date().toLocaleString()}\n\n`;
+
+        csvContent += "SUMMARY\n";
+        csvContent += `Total Revenue,${stats.totalRevenue}\n`;
+        csvContent += `Gross Profit,${stats.grossProfit}\n`;
+        csvContent += `Net Margin,${stats.netMargin}%\n`;
+        csvContent += `Total Transactions,${stats.totalTransactions}\n\n`;
+
+        csvContent += "DAILY TRENDS (Last 7 Days)\n";
+        csvContent += "Day,Revenue,Profit\n";
+        profitData.forEach(d => {
+            csvContent += `${d.name},$${d.revenue},$${d.profit}\n`;
+        });
+        csvContent += "\n";
+
+        csvContent += "CATEGORY BREAKDOWN\n";
+        csvContent += "Category,Value,Percentage\n";
+        categoryBreakdown.forEach(c => {
+            csvContent += `${c.name},${c.value},${c.percentage}%\n`;
+        });
+
+        // Download the file
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `profit_report_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
     };
 
     if (userRole === 'staff') {
@@ -137,7 +179,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                         <h2 className="text-3xl font-black text-white tracking-tight">Profit Analysis</h2>
                         <p className="text-slate-400 text-base">Real-time margin tracking from your transactions</p>
                     </div>
-                    <button className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition">
+                    <button
+                        onClick={generateReport}
+                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/90 transition"
+                    >
                         <span className="material-symbols-outlined text-[20px]">description</span> Generate Report
                     </button>
                 </div>
@@ -269,7 +314,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                                         'Add more transactions to get optimization recommendations.'
                                     )}
                                 </p>
-                                <button className="mt-2 w-full flex items-center justify-center gap-2 bg-primary text-white text-xs font-bold uppercase py-2.5 rounded-lg hover:bg-primary/90 transition-colors">
+                                <button
+                                    onClick={() => setShowRecommendation(true)}
+                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-primary text-white text-xs font-bold uppercase py-2.5 rounded-lg hover:bg-primary/90 transition-colors"
+                                >
                                     View Recommendation
                                 </button>
                             </div>
@@ -277,6 +325,105 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Recommendation Modal */}
+            {showRecommendation && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRecommendation(false)}>
+                    <div className="glass-panel rounded-2xl w-full max-w-lg p-6 border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-primary text-2xl">psychology</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white">Profit Optimization</h3>
+                                    <p className="text-sm text-slate-400">AI-powered recommendations</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowRecommendation(false)}
+                                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition"
+                            >
+                                <span className="material-symbols-outlined text-slate-400 text-xl">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {insight.sku ? (
+                                <>
+                                    <div className="bg-[#0bda5b]/10 border border-[#0bda5b]/20 rounded-xl p-4">
+                                        <div className="flex items-center gap-2 text-[#0bda5b] mb-2">
+                                            <span className="material-symbols-outlined text-lg">trending_up</span>
+                                            <span className="font-bold text-sm uppercase">{insight.title}</span>
+                                        </div>
+                                        <p className="text-white text-sm">{insight.message}</p>
+                                    </div>
+
+                                    <div className="bg-white/5 rounded-xl p-4">
+                                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary text-lg">lightbulb</span>
+                                            Recommendations
+                                        </h4>
+                                        <ul className="space-y-2 text-sm text-slate-300">
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-primary mt-0.5">•</span>
+                                                <span>Increase stock for high-margin items to avoid stockouts</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-primary mt-0.5">•</span>
+                                                <span>Consider bundling slow-moving items with bestsellers</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-primary mt-0.5">•</span>
+                                                <span>Review pricing on items with margins below {stats.netMargin}%</span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                                <span className="text-primary mt-0.5">•</span>
+                                                <span>Track <span className="text-primary font-medium">{insight.sku}</span> performance weekly</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-white/5 rounded-xl p-3 text-center">
+                                            <p className="text-2xl font-bold text-white">{stats.totalRevenue}</p>
+                                            <p className="text-xs text-slate-400">Total Revenue</p>
+                                        </div>
+                                        <div className="bg-white/5 rounded-xl p-3 text-center">
+                                            <p className="text-2xl font-bold text-[#0bda5b]">{stats.netMargin}%</p>
+                                            <p className="text-xs text-slate-400">Net Margin</p>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <span className="material-symbols-outlined text-5xl text-slate-600 mb-3 block">inventory_2</span>
+                                    <h4 className="text-white font-bold mb-2">No Recommendations Yet</h4>
+                                    <p className="text-slate-400 text-sm max-w-xs mx-auto">
+                                        Add more inventory and transactions to get AI-powered optimization suggestions.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                onClick={() => setShowRecommendation(false)}
+                                className="flex-1 py-2.5 rounded-lg bg-white/5 text-white font-bold text-sm hover:bg-white/10 transition"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => { generateReport(); setShowRecommendation(false); }}
+                                className="flex-1 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 transition flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-lg">download</span>
+                                Export Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
