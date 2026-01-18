@@ -95,16 +95,19 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
             csvContent += `${c.name},${c.value},${c.percentage}%\n`;
         });
 
-        // Download the file
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `profit_report_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        // Download the file using data URI approach for better browser compatibility
+        const encodedUri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+        const link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', `profit_report_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        link.style.position = 'absolute';
+        document.body.appendChild(link);
+        link.click();
+        // Small delay before cleanup to ensure download starts
+        setTimeout(() => {
+            document.body.removeChild(link);
+        }, 100);
     };
 
     if (userRole === 'staff') {
