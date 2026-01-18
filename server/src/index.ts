@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { addTransaction, getVendors, getTransactions } from './store'; // Added imports for new routes
+import { addTransaction, getVendors, getTransactions, clearTransactions } from './store'; // Added imports for new routes
 
 dotenv.config();
 
@@ -51,6 +51,16 @@ app.get('/api/transactions', async (req, res) => {
         res.json(transactions);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch transactions' });
+    }
+});
+
+// Clear all transactions (reset profit analyzer)
+app.delete('/api/transactions', async (req, res) => {
+    try {
+        const deletedCount = await clearTransactions();
+        res.json({ success: true, message: `Cleared ${deletedCount} transactions`, deletedCount });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to clear transactions' });
     }
 });
 

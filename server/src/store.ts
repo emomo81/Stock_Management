@@ -138,6 +138,15 @@ export const getTransactions = (): Promise<Transaction[]> => {
     });
 };
 
+export const clearTransactions = (): Promise<number> => {
+    return new Promise((resolve, reject) => {
+        db.run("DELETE FROM transactions", function (err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+        });
+    });
+};
+
 // --- User Operations ---
 
 export const findUser = (email: string): Promise<User | undefined> => {
