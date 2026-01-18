@@ -23,7 +23,7 @@ const MOCK_HISTORY = [
     { date: 'Aug 02, 2023', action: 'Product Created', detail: 'Initial SKU generation', user: 'Admin', type: 'system' },
 ];
 
-const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter }) => {
+const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, initialSearch }) => {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     // const [showEngine, setShowEngine] = useState(false); // Kept existing state
@@ -40,8 +40,14 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter }) 
         attributes: [] as { id: string, key: string, value: string }[]
     });
 
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialSearch || '');
     const [filterStock, setFilterStock] = useState(initialFilter || 'all');
+
+    useEffect(() => {
+        if (initialSearch) {
+            setSearchQuery(initialSearch);
+        }
+    }, [initialSearch]);
 
     useEffect(() => {
         if (initialFilter) {

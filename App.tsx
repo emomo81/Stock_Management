@@ -105,10 +105,19 @@ const App: React.FC = () => {
                 type="text"
                 placeholder="Global Search..."
                 className="bg-[#1e293b]/50 border border-white/10 rounded-full h-9 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary w-64 transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const target = e.target as HTMLInputElement;
+                    if (target.value.trim()) {
+                      handleSetView('inventory', { search: target.value });
+                      target.value = ''; // Clear after search
+                    }
+                  }
+                }}
               />
             </div>
 
-            <div className="flex gap-3 relative">
+            <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className={`relative size-9 flex items-center justify-center rounded-full transition-colors ${showNotifications ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-slate-400 hover:text-white'}`}
@@ -116,6 +125,37 @@ const App: React.FC = () => {
                 <span className="material-symbols-outlined text-[20px]">notifications</span>
                 <span className="absolute top-2 right-2 size-2 bg-red-500 rounded-full border border-[#101922]"></span>
               </button>
+
+              {/* Notifications Dropdown */}
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="p-3 border-b border-white/5 flex justify-between items-center bg-[#101922]">
+                    <h3 className="text-sm font-bold text-white">Notifications</h3>
+                    <button className="text-[10px] text-primary hover:underline">Mark all read</button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {[
+                      { icon: 'warning', color: 'text-red-500', bg: 'bg-red-500/10', title: 'Critical Stock Alert', desc: '3 items below safety levels', time: '2m ago' },
+                      { icon: 'shopping_cart', color: 'text-emerald-500', bg: 'bg-emerald-500/10', title: 'New Order #1023', desc: '$450.00 - Acme Corp', time: '15m ago' },
+                      { icon: 'person_add', color: 'text-blue-500', bg: 'bg-blue-500/10', title: 'New User', desc: 'Sarah J. joined the team', time: '1h ago' },
+                    ].map((notif, i) => (
+                      <div key={i} className="p-3 hover:bg-white/5 border-b border-white/5 last:border-0 cursor-pointer flex gap-3 transition-colors">
+                        <div className={`size-8 rounded-lg ${notif.bg} flex items-center justify-center shrink-0`}>
+                          <span className={`material-symbols-outlined text-[18px] ${notif.color}`}>{notif.icon}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{notif.title}</p>
+                          <p className="text-xs text-slate-400">{notif.desc}</p>
+                          <p className="text-[10px] text-slate-500 mt-1">{notif.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-2 bg-[#101922] text-center">
+                    <button className="text-xs text-slate-400 hover:text-white transition-colors">View All Activity</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="h-8 w-px bg-white/10 hidden sm:block"></div>
@@ -141,7 +181,7 @@ const App: React.FC = () => {
           {currentView === 'users' && <Users />}
 
           {(currentView === 'inventory' || currentView === 'families') &&
-            <Inventory view={currentView} userRole={userRole} initialFilter={viewParams?.filter} />
+            <Inventory view={currentView} userRole={userRole} initialFilter={viewParams?.filter} initialSearch={viewParams?.search} />
           }
 
           {(currentView === 'stock-in' || currentView === 'stock-out' || currentView === 'audit') &&
