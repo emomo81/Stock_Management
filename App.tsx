@@ -197,7 +197,7 @@ const App: React.FC = () => {
           }
 
           {(currentView === 'stock-in' || currentView === 'stock-out' || currentView === 'audit') &&
-            <StockOperations view={currentView} />
+            <StockOperations view={currentView} addNotification={(n) => setNotifications(prev => [n, ...prev])} />
           }
 
           {currentView === 'analytics' && <Analytics userRole={userRole} />}

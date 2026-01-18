@@ -39,9 +39,10 @@ interface ForecastItem extends InventoryItem {
 
 interface StockOperationsProps {
     view: View;
+    addNotification?: (notification: any) => void;
 }
 
-const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
+const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification }) => {
     // Customer State
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
@@ -412,6 +413,18 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                     const errorText = await transRes.text();
                     throw new Error(`Failed to create transaction for ${item.name}: ${errorText}`);
                 }
+            }
+
+            // Success Notification
+            if (addNotification) {
+                addNotification({
+                    icon: 'check_circle',
+                    color: 'text-emerald-500',
+                    bg: 'bg-emerald-500/10',
+                    title: 'Order Completed',
+                    desc: `${cart.length} items sold to ${customerName || 'Guest'}`,
+                    time: 'Just now'
+                });
             }
 
             // Refresh Inventory first

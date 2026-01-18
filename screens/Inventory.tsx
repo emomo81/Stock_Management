@@ -40,6 +40,8 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
         attributes: [] as { id: string, key: string, value: string }[]
     });
 
+    const [historyLogs, setHistoryLogs] = useState<any[]>([]); // Real history state
+
     const [searchQuery, setSearchQuery] = useState(initialSearch || '');
     const [filterStock, setFilterStock] = useState(initialFilter || 'all');
 
@@ -55,6 +57,29 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
             setShowFilters(true);
         }
     }, [initialFilter]);
+
+    // Fetch history when item is selected
+    useEffect(() => {
+        if (selectedItem?.id) {
+            fetch(`http://localhost:5001/api/transactions?itemId=${selectedItem.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        const logs = data.map((t: any) => ({
+                            date: new Date(t.date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
+                            action: t.type === 'IN' ? 'Stock Received' : 'Stock Sold',
+                            detail: `${t.type === 'IN' ? '+' : '-'}${t.qty} units • ${t.vendor || 'Unknown'}`,
+                            user: t.type === 'IN' ? 'Purchasing' : 'Sales',
+                            type: t.type === 'IN' ? 'stock' : 'price'
+                        }));
+                        setHistoryLogs(logs);
+                    }
+                })
+                .catch(err => console.error("Failed to fetch history", err));
+        } else {
+            setHistoryLogs([]);
+        }
+    }, [selectedItem]);
 
     const [filterCategory, setFilterCategory] = useState('all');
 
@@ -675,7 +700,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
                                     <span className="material-symbols-outlined text-slate-400">history</span> Activity Log
                                 </h4>
                                 <div className="relative pl-2 border-l border-white/10 space-y-8 ml-1.5">
-                                    {MOCK_HISTORY.map((log, idx) => (
+                                    {(historyLogs.length > 0 ? historyLogs : []).map((log, idx) => (
                                         <div key={idx} className="relative pl-6 group">
                                             <div className={`absolute -left-[5px] top-1 size-2.5 rounded-full border-2 border-[#101922] ${log.type === 'stock' ? 'bg-emerald-500' :
                                                 log.type === 'price' ? 'bg-blue-500' :

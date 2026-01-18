@@ -47,7 +47,8 @@ app.post('/api/transactions', async (req, res) => {
 // Get all transactions for analysis
 app.get('/api/transactions', async (req, res) => {
     try {
-        const transactions = await getTransactions();
+        const itemId = req.query.itemId as string;
+        const transactions = await getTransactions(itemId);
         res.json(transactions);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch transactions' });

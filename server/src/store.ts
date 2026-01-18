@@ -129,9 +129,19 @@ export const getVendors = (): Promise<string[]> => {
     });
 };
 
-export const getTransactions = (): Promise<Transaction[]> => {
+export const getTransactions = (itemId?: string): Promise<Transaction[]> => {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM transactions ORDER BY date DESC", (err, rows: any[]) => {
+        let query = "SELECT * FROM transactions";
+        const params: any[] = [];
+
+        if (itemId) {
+            query += " WHERE itemId = ?";
+            params.push(itemId);
+        }
+
+        query += " ORDER BY date DESC";
+
+        db.all(query, params, (err, rows: any[]) => {
             if (err) reject(err);
             else resolve(rows as Transaction[]);
         });
