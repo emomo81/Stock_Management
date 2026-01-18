@@ -75,4 +75,98 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Forecasting endpoint - provides dynamic forecasting data for smart forecasting view
+router.get('/forecasting', async (req, res) => {
+    try {
+        const items = await getItems();
+
+        if (items.length === 0) {
+            return res.json({
+                items: [],
+                selectedItem: null,
+                forecast: null
+            });
+        }
+
+        // Get item ID from query or use first low-stock item
+        const itemId = req.query.itemId as string;
+        let selectedItem = itemId
+            ? items.find(i => i.id === itemId)
+            : items.filter(i => i.stock < 50).sort((a, b) => a.stock - b.stock)[0] || items[0];
+
+        if (!selectedItem) {
+            selectedItem = items[0];
+        }
+
+        // Calculate forecasting data
+        const price = parseFloat(String(selectedItem.price).replace('$', '').replace(',', '')) || 0;
+        const currentStock = selectedItem.stock;
+
+        // Simulated sales velocity (units per day) - in real app, calculate from transactions
+        const dailyVelocity = Math.max(1, Math.floor(currentStock / 30) + Math.random() * 3);
+
+        // Calculate stock-out date
+        const daysUntilStockOut = currentStock > 0 ? Math.floor(currentStock / dailyVelocity) : 0;
+        const stockOutDate = new Date();
+        stockOutDate.setDate(stockOutDate.getDate() + daysUntilStockOut);
+
+        // Recommended reorder quantity (target 30-day supply)
+        const targetDays = 30;
+        const targetStock = Math.ceil(dailyVelocity * targetDays);
+        const reorderQty = Math.max(0, targetStock - currentStock);
+
+        // Confidence score (simulated)
+        const confidence = Math.floor(70 + Math.random() * 25);
+
+        // Generate chart data (weekly intervals)
+        const chartData = [];
+        const now = new Date();
+        for (let week = 0; week < 8; week++) {
+            const date = new Date(now);
+            date.setDate(date.getDate() + (week * 7));
+            const projectedStock = Math.max(0, currentStock - (dailyVelocity * week * 7));
+
+            chartData.push({
+                name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                value: week < 2 ? Math.max(0, currentStock - (dailyVelocity * week * 7)) : null, // Actual data (past 2 weeks simulated)
+                forecast: projectedStock,
+                critical: Math.min(20, currentStock * 0.2) // Critical threshold
+            });
+        }
+
+        // List of items available for forecasting (low stock priority)
+        const forecastableItems = items
+            .map(item => ({
+                id: item.id,
+                name: item.name,
+                sku: item.sku,
+                stock: item.stock,
+                selected: item.id === selectedItem.id
+            }))
+            .sort((a, b) => a.stock - b.stock)
+            .slice(0, 10);
+
+        res.json({
+            items: forecastableItems,
+            selectedItem: {
+                id: selectedItem.id,
+                name: selectedItem.name,
+                sku: selectedItem.sku,
+                stock: currentStock,
+                price: price
+            },
+            forecast: {
+                dailyVelocity: dailyVelocity.toFixed(1),
+                daysUntilStockOut,
+                stockOutDate: stockOutDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                reorderQty,
+                confidence,
+                chartData
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error generating forecast', error });
+    }
+});
+
 export default router;

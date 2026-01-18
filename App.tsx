@@ -51,7 +51,7 @@ const App: React.FC = () => {
   if (currentView === 'scanner') {
     return <Admin view={currentView} userRole={userRole} setView={setCurrentView} />;
   }
-// v
+  // v
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-white font-sans">
       {/* Mobile Sidebar Overlay */}
@@ -132,6 +132,7 @@ const App: React.FC = () => {
         {/* Dynamic View Content */}
         <main className="flex-1 overflow-hidden relative">
           {currentView === 'dashboard' && <Dashboard setView={setCurrentView} />}
+          {currentView === 'forecasting' && <Dashboard setView={setCurrentView} showForecasting={true} />}
           {currentView === 'users' && <Users />}
 
           {(currentView === 'inventory' || currentView === 'families') &&
