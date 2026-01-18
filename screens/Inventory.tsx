@@ -23,12 +23,12 @@ const MOCK_HISTORY = [
     { date: 'Aug 02, 2023', action: 'Product Created', detail: 'Initial SKU generation', user: 'Admin', type: 'system' },
 ];
 
-const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
+const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter }) => {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     // const [showEngine, setShowEngine] = useState(false); // Kept existing state
     const [showEngine, setShowEngine] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(!!initialFilter);
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
     const [formData, setFormData] = useState({
         name: '',
@@ -41,7 +41,15 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole }) => {
     });
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterStock, setFilterStock] = useState('all');
+    const [filterStock, setFilterStock] = useState(initialFilter || 'all');
+
+    useEffect(() => {
+        if (initialFilter) {
+            setFilterStock(initialFilter);
+            setShowFilters(true);
+        }
+    }, [initialFilter]);
+
     const [filterCategory, setFilterCategory] = useState('all');
 
     // Import Modal State

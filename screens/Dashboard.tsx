@@ -71,7 +71,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false }) => {
-  const [showAlert, setShowAlert] = useState(true);
+  /* const [showAlert, setShowAlert] = useState(true); */
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [forecastingData, setForecastingData] = useState<ForecastingData | null>(null);
@@ -352,7 +352,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col bg-[#101922]">
       {/* Alert Banner */}
-      {showAlert && !showForecasting && (
+      {/* Alert Banner */}
+      {stats.lowStock > 0 && !showForecasting && (
         <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start justify-between animate-in slide-in-from-top-2 fade-in duration-500">
           <div className="flex gap-4">
             <div className="size-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
@@ -360,14 +361,12 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
             </div>
             <div>
               <h3 className="text-white font-bold text-sm">Critical Stock Alert</h3>
-              <p className="text-slate-400 text-xs mt-1">3 items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
+              <p className="text-slate-400 text-xs mt-1">{stats.lowStock} items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
               <div className="flex gap-2 mt-3">
-                <button onClick={() => setView('inventory')} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
-                <button onClick={() => setShowAlert(false)} className="text-slate-400 hover:text-white text-xs font-medium px-3 py-1.5">Dismiss</button>
+                <button onClick={() => setView('inventory', { filter: 'low' })} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
               </div>
             </div>
           </div>
-          <button onClick={() => setShowAlert(false)} className="text-slate-500 hover:text-white"><span className="material-symbols-outlined">close</span></button>
         </div>
       )}
 
