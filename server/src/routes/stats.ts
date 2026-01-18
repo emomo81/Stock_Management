@@ -206,19 +206,40 @@ router.get('/analytics', async (req, res) => {
         const profitData = [];
         const now = new Date();
 
+        // Helper function to extract date string (YYYY-MM-DD) from various formats
+        const extractDateStr = (dateValue: string | null | undefined): string | null => {
+            if (!dateValue) return null;
+            // Try to parse as Date and get YYYY-MM-DD
+            const d = new Date(dateValue);
+            if (!isNaN(d.getTime())) {
+                // Return in local date format YYYY-MM-DD
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            // Fallback: try to extract YYYY-MM-DD from string
+            const match = dateValue.match(/(\d{4}-\d{2}-\d{2})/);
+            return match ? match[1] : null;
+        };
+
         for (let i = 6; i >= 0; i--) {
             const date = new Date(now);
             date.setDate(date.getDate() - i);
             const dayName = weekDays[date.getDay()];
-            const dateStr = date.toISOString().split('T')[0];
+            // Get local date string in YYYY-MM-DD format
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
             // Filter transactions for this day
             const daySales = salesTransactions.filter(t => {
-                const tDate = t.date?.split('T')[0] || t.date?.split(' ')[0];
+                const tDate = extractDateStr(t.date);
                 return tDate === dateStr;
             });
             const dayPurchases = purchaseTransactions.filter(t => {
-                const tDate = t.date?.split('T')[0] || t.date?.split(' ')[0];
+                const tDate = extractDateStr(t.date);
                 return tDate === dateStr;
             });
 
