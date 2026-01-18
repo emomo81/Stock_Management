@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { UserRole } from '../types';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 interface AnalyticsProps {
     userRole: UserRole;
@@ -213,6 +213,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                                                 <Cell key={`prof-${index}`} fill={entry.profit >= 0 ? '#0bda5b' : '#ef4444'} fillOpacity={0.9} />
                                             ))}
                                         </Bar>
+                                        <Legend
+                                            wrapperStyle={{ paddingTop: '10px' }}
+                                            formatter={(value) => <span style={{ color: '#94a3b8', fontSize: '12px' }}>{value}</span>}
+                                        />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
