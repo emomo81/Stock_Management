@@ -28,7 +28,7 @@ const DataExportView: React.FC = () => {
 
             // Fetch inventory/products if selected
             if (selectedSets['All Products'] || selectedSets['Low Stock']) {
-                const itemsRes = await fetch('http://localhost:5001/api/items');
+                const itemsRes = await fetch('http://localhost:5001/api/inventory');
                 if (itemsRes.ok) {
                     const items = await itemsRes.json();
                     if (selectedSets['All Products']) {
@@ -269,6 +269,11 @@ const DataExportView: React.FC = () => {
 };
 
 // Mobile Scanner View Component
+declare class BarcodeDetector {
+    constructor(options?: { formats: string[] });
+    detect(image: ImageBitmapSource): Promise<Array<{ rawValue: string; format: string }>>;
+}
+
 const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setView }) => {
     const [scannedItem, setScannedItem] = useState<InventoryItem | null>(null);
     const [barcodeInput, setBarcodeInput] = useState('');
@@ -276,10 +281,68 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
     const [stockMode, setStockMode] = useState<'in' | 'out'>('in');
     const [qty, setQty] = useState(1);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    const [cameraActive, setCameraActive] = useState(false);
 
-    const handleScan = async (e?: React.FormEvent) => {
+    // Initialize Camera
+    React.useEffect(() => {
+        let stream: MediaStream | null = null;
+        let interval: NodeJS.Timeout;
+
+        const startCamera = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    setCameraActive(true);
+
+                    // Start scanning loop if BarcodeDetector is supported
+                    if ('BarcodeDetector' in window) {
+                        const barcodeDetector = new BarcodeDetector({ formats: ['qr_code', 'ean_13', 'upc_a'] });
+
+                        const scanLoop = async () => {
+                            if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
+
+                            try {
+                                const barcodes = await barcodeDetector.detect(videoRef.current);
+                                if (barcodes.length > 0) {
+                                    const code = barcodes[0].rawValue;
+                                    setBarcodeInput(code);
+                                    handleScan(undefined, code);
+                                    // Feedback sound
+                                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                                    audio.play().catch(() => { });
+                                }
+                            } catch (e) {
+                                // Ignore detection errors
+                            }
+                        };
+
+                        interval = setInterval(scanLoop, 500); // Scan every 500ms
+                    }
+                }
+            } catch (err) {
+                console.error("Camera access denied or not supported", err);
+                setFeedback({ type: 'error', message: 'Camera access denied. Use manual input.' });
+            }
+        };
+
+        startCamera();
+
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (interval) clearInterval(interval);
+        };
+    }, []);
+
+    const handleScan = async (e?: React.FormEvent, codeOverride?: string) => {
         if (e) e.preventDefault();
-        if (!barcodeInput.trim()) return;
+        const code = codeOverride || barcodeInput;
+        if (!code?.trim()) return;
 
         setIsScanning(true);
         setFeedback(null);
@@ -290,15 +353,16 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
             const res = await fetch('http://localhost:5001/api/inventory');
             if (res.ok) {
                 const items: InventoryItem[] = await res.json();
-                // Simulating a scan by matching SKU partial or name
-                const found = items.find(i =>
-                    i.sku.toLowerCase().includes(barcodeInput.toLowerCase()) ||
-                    `AIMS-${i.sku}`.toLowerCase() === barcodeInput.toLowerCase()
-                );
+                // Simulating a scan by matching SKU partial or name or checking if the scanned code contains the SKU
+                const found = items.find(i => {
+                    const search = code.toLowerCase();
+                    return `aims-${i.sku}`.toLowerCase() === search ||
+                        i.sku.toLowerCase() === search ||
+                        i.sku.toLowerCase().includes(search);
+                });
 
                 if (found) {
                     setScannedItem(found);
-                    // vibration feedback simulation
                     if (navigator.vibrate) navigator.vibrate(200);
                 } else {
                     setFeedback({ type: 'error', message: 'Product not found' });
@@ -320,8 +384,8 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                 ? scannedItem.qty + qty
                 : Math.max(0, scannedItem.qty - qty);
 
-            // Using the items endpoint to update
-            const res = await fetch(`http://localhost:5001/api/items/${scannedItem.id}`, {
+            // Using the inventory endpoint to update
+            const res = await fetch(`http://localhost:5001/api/inventory/${scannedItem.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...scannedItem, qty: newQty })
@@ -344,9 +408,19 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
 
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-            {/* Camera Feed Simulation / Input Area */}
-            <div className="absolute inset-0 bg-[#0f172a]">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2000&auto=format&fit=crop')] bg-cover opacity-10"></div>
+            {/* Camera Feed */}
+            <div className="absolute inset-0 bg-black overflow-hidden">
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover opacity-60"
+                />
+                {/* Fallback pattern if camera not active */}
+                {!cameraActive && (
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2000&auto=format&fit=crop')] bg-cover opacity-20"></div>
+                )}
             </div>
 
             {/* UI Overlay */}
@@ -357,7 +431,8 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                     <button onClick={() => setView('dashboard')} className="size-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition">
                         <span className="material-symbols-outlined">close</span>
                     </button>
-                    <div className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-sm font-medium border border-white/10">
+                    <div className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-sm font-medium border border-white/10 flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${cameraActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                         Scanner Active
                     </div>
                     <button className="size-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition">
@@ -370,14 +445,16 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                     {!scannedItem ? (
                         <div className="w-full space-y-8">
                             {/* Scanning View */}
-                            <div className="relative w-64 h-64 mx-auto border-2 border-primary/50 rounded-3xl flex items-center justify-center overflow-hidden">
+                            <div className="relative w-64 h-64 mx-auto border-2 border-primary/50 rounded-3xl flex items-center justify-center overflow-hidden bg-black/10 backdrop-blur-sm">
                                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-xl"></div>
                                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-xl"></div>
                                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-xl"></div>
                                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-xl"></div>
                                 <div className="w-full h-0.5 bg-primary absolute top-1/2 shadow-[0_0_20px_rgba(25,133,240,0.8)] animate-pulse"></div>
 
-                                <span className="material-symbols-outlined text-6xl text-white/10">qr_code_scanner</span>
+                                {!cameraActive && (
+                                    <span className="material-symbols-outlined text-6xl text-white/10">qr_code_scanner</span>
+                                )}
                             </div>
 
                             <form onSubmit={handleScan} className="w-full relative">
@@ -386,7 +463,7 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                                     value={barcodeInput}
                                     onChange={(e) => setBarcodeInput(e.target.value)}
                                     placeholder="Enter SKU or Scan..."
-                                    className="w-full bg-white/10 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-center text-lg font-mono"
+                                    className="w-full bg-white/10 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-center text-lg font-mono backdrop-blur-md"
                                     autoFocus
                                 />
                                 <button
@@ -399,7 +476,7 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                             </form>
 
                             {feedback && (
-                                <div className={`p-4 rounded-xl text-center text-sm font-bold animate-in fade-in slide-in-from-bottom-4 ${feedback.type === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                                <div className={`p-4 rounded-xl text-center text-sm font-bold animate-in fade-in slide-in-from-bottom-4 backdrop-blur-md ${feedback.type === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-green-500/20 text-green-400 border border-green-500/20'
                                     }`}>
                                     {feedback.message}
                                 </div>
@@ -493,7 +570,7 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                 </div>
 
                 <div className="text-center">
-                    <p className="text-slate-500 text-xs">Point camera at barcode or enter SKU manually</p>
+                    <p className="text-slate-500 text-xs text-white/50">Point camera at barcode or enter SKU manually</p>
                 </div>
             </div>
         </div>
