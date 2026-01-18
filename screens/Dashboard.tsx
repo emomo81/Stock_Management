@@ -1,26 +1,39 @@
-import React, { useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { View } from '../types';
 
-const data = [
-  { name: 'Sep 15', value: 100, forecast: 100, critical: 50 },
-  { name: 'Sep 22', value: 90, forecast: 90, critical: 50 },
-  { name: 'Sep 29', value: 75, forecast: 75, critical: 50 },
-  { name: 'Oct 06', value: 50, forecast: 50, critical: 50 },
-  { name: 'Oct 13', value: null, forecast: 35, critical: 50 },
-  { name: 'Oct 24', value: null, forecast: 10, critical: 50 },
-  { name: 'Nov 07', value: null, forecast: 0, critical: 50 },
-];
+// Interfaces for API data
+interface FastMover {
+  rank: string;
+  name: string;
+  sku: string;
+  stock: number;
+  sold: number;
+  trend: string;
+  color: string;
+}
 
-const profitData = [
-  { name: 'Mon', revenue: 4000, profit: 2400 },
-  { name: 'Tue', revenue: 3000, profit: 1398 },
-  { name: 'Wed', revenue: 2000, profit: 9800 },
-  { name: 'Thu', revenue: 2780, profit: 3908 },
-  { name: 'Fri', revenue: 1890, profit: 4800 },
-  { name: 'Sat', revenue: 2390, profit: 3800 },
-  { name: 'Sun', revenue: 3490, profit: 4300 },
-];
+interface DeadStockItem {
+  name: string;
+  sku: string;
+  stock: number;
+  value: string;
+  days: string;
+}
+
+interface DashboardStats {
+  totalSKUs: number;
+  lowStock: number;
+  outOfStock: number;
+  totalValue: string;
+}
+
+interface DashboardData {
+  stats: DashboardStats;
+  chartData: Array<{ name: string; value: number | null; forecast: number; critical: number }>;
+  fastMovers: FastMover[];
+  deadStock: DeadStockItem[];
+}
 
 interface DashboardProps {
   setView: (view: View) => void;
@@ -31,32 +44,65 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
   const [scenarioMode, setScenarioMode] = useState(false);
   const [showAlert, setShowAlert] = useState(true);
 
-  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = async () => {
     try {
+      setError(null);
       const res = await fetch('http://localhost:5001/api/stats');
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setDashboardData(data);
       setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+      setError('Failed to load dashboard data. Please check your connection.');
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="flex-1 p-6 md:p-8 flex items-center justify-center text-slate-500">Loading Dashboard...</div>;
+    return (
+      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-[#101922]">
+        <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-2">progress_activity</span>
+        Loading Dashboard...
+      </div>
+    );
   }
 
+  if (error) {
+    return (
+      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-[#101922]">
+        <span className="material-symbols-outlined text-4xl text-red-400 mb-2">error</span>
+        <p className="text-red-400 font-bold">Connection Error</p>
+        <p className="text-sm">{error}</p>
+        <button
+          onClick={fetchStats}
+          className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Default fallback data if API returns partial data
+  const defaultStats: DashboardStats = { totalSKUs: 0, lowStock: 0, outOfStock: 0, totalValue: '$0.00' };
+  const defaultChartData = [
+    { name: 'No Data', value: 0, forecast: 0, critical: 0 },
+  ];
+
   // Use fetched data or fallback
-  const chartData = dashboardData?.chartData || data;
-  const stats = dashboardData?.stats || { totalSKUs: 0, lowStock: 0, outOfStock: 0, totalValue: '$0.00' };
+  const chartData = dashboardData?.chartData || defaultChartData;
+  const stats = dashboardData?.stats || defaultStats;
+  const fastMovers: FastMover[] = dashboardData?.fastMovers || [];
+  const deadStock: DeadStockItem[] = dashboardData?.deadStock || [];
 
   if (showForecasting) {
     return (
@@ -241,32 +287,39 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
               <span className="material-symbols-outlined text-cyan-400">rocket_launch</span>
               Fast Movers
             </h3>
-            <button className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">more_vert</span></button>
+            <span className="text-xs text-white bg-cyan-500/20 px-2 py-1 rounded border border-cyan-500/30">
+              {fastMovers.length} Items
+            </span>
           </div>
           <div className="flex-1 overflow-auto p-2">
-            {[
-              { rank: '01', name: 'Pro Audio Headset', sku: 'AUDIO-WH-1000', stock: 142, sold: '1,240', trend: '+24%', color: 'emerald' },
-              { rank: '02', name: 'Smart Watch V2', sku: 'WEAR-SW-005', stock: 0, sold: '985', trend: '+18%', color: 'emerald' },
-              { rank: '03', name: 'Mech Keyboard', sku: 'TECH-KB-RGB', stock: 850, sold: '850', trend: '+12%', color: 'emerald' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg group transition-colors cursor-pointer" onClick={() => setView('forecasting')}>
-                <div className="flex items-center gap-4">
-                  <span className="text-slate-500 font-bold w-6">{item.rank}</span>
-                  <div className="size-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-slate-400">image</span>
+            {fastMovers.length > 0 ? (
+              fastMovers.map((item, i) => (
+                <div key={`fast-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg group transition-colors cursor-pointer" onClick={() => setView('inventory')}>
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-500 font-bold w-6">{item.rank}</span>
+                    <div className="size-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-slate-400">inventory_2</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{item.name}</p>
+                      <p className="text-xs text-slate-500">{item.sold.toLocaleString()} units sold</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{item.name}</p>
-                    <p className="text-xs text-slate-500">{item.sold} units sold</p>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-emerald-400/10 text-emerald-400`}>
+                      <span className="material-symbols-outlined text-[10px]">trending_up</span> {item.trend}
+                    </span>
+                    <span className="text-xs text-slate-500 mt-1">Stock: {item.stock}</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className={`text-xs font-bold text-${item.color}-400 bg-${item.color}-400/10 px-2 py-0.5 rounded flex items-center gap-1`}>
-                    <span className="material-symbols-outlined text-[10px]">trending_up</span> {item.trend}
-                  </span>
-                </div>
+              ))
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
+                <span className="material-symbols-outlined text-3xl mb-2 opacity-50">inventory_2</span>
+                <p className="text-sm">No fast movers yet</p>
+                <p className="text-xs">Sales data will appear here</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -277,27 +330,33 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
               <span className="material-symbols-outlined text-rose-400">hourglass_disabled</span>
               Dead Stock
             </h3>
-            <span className="text-xs text-white bg-rose-500/20 px-2 py-1 rounded border border-rose-500/30">3 Items</span>
+            <span className="text-xs text-white bg-rose-500/20 px-2 py-1 rounded border border-rose-500/30">
+              {deadStock.length} Items
+            </span>
           </div>
           <div className="flex-1 overflow-auto p-2">
-            {[
-              { name: 'Legacy Printer A4', stock: 45, value: '$4,500', days: '120 Days' },
-              { name: 'Router v1.0', stock: 22, value: '$1,980', days: '105 Days' },
-              { name: 'VGA Cables', stock: 150, value: '$750', days: '98 Days' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg border border-transparent hover:border-rose-500/20 transition-all cursor-pointer">
-                <div className="flex items-center gap-4">
-                  <div className="size-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-rose-400">inventory</span>
+            {deadStock.length > 0 ? (
+              deadStock.map((item, i) => (
+                <div key={`dead-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg border border-transparent hover:border-rose-500/20 transition-all cursor-pointer" onClick={() => setView('inventory')}>
+                  <div className="flex items-center gap-4">
+                    <div className="size-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-rose-400">inventory</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{item.name}</p>
+                      <p className="text-xs text-slate-500">Stock: {item.stock} • {item.value}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">{item.name}</p>
-                    <p className="text-xs text-slate-500">Stock: {item.stock} • {item.value}</p>
-                  </div>
+                  <span className="text-xs font-bold text-rose-400 bg-rose-400/10 px-2 py-1 rounded">{item.days}</span>
                 </div>
-                <span className="text-xs font-bold text-rose-400 bg-rose-400/10 px-2 py-1 rounded">{item.days}</span>
+              ))
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
+                <span className="material-symbols-outlined text-3xl mb-2 opacity-50">check_circle</span>
+                <p className="text-sm">No dead stock</p>
+                <p className="text-xs">All inventory is moving well</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
