@@ -785,10 +785,33 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                         <span className="material-symbols-outlined text-green-600">check_circle</span> Order Created Successfully
                                     </span>
                                     <div className="flex gap-2">
-                                        <button onClick={() => window.print()} className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded flex items-center gap-1 hover:bg-slate-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => window.print()}
+                                            className="px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded flex items-center gap-1 hover:bg-slate-700 transition"
+                                        >
                                             <span className="material-symbols-outlined text-sm">print</span> Print
                                         </button>
-                                        <button onClick={() => setShowInvoice(false)} className="px-3 py-1.5 bg-slate-200 text-slate-600 text-xs font-bold rounded hover:bg-slate-300">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowInvoice(false);
+                                                // Reset form for new order
+                                                setCart([]);
+                                                setCustomerName('');
+                                                setCustomerEmail('');
+                                                setCustomerPhone('');
+                                                setCheckoutError(null);
+                                            }}
+                                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded flex items-center gap-1 hover:bg-emerald-700 transition"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">add</span> New Order
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowInvoice(false)}
+                                            className="px-3 py-1.5 bg-slate-200 text-slate-600 text-xs font-bold rounded hover:bg-slate-300 transition"
+                                        >
                                             Close
                                         </button>
                                     </div>
