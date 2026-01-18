@@ -1,64 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { View } from '../types';
+
+// TypeScript Interfaces
+interface InventoryItem {
+    id: string;
+    name: string;
+    sku: string;
+    stock: number;
+    price: number | string;
+    img?: string;
+    attributes?: Record<string, unknown>;
+}
+
+interface CartItem {
+    id?: string;
+    name: string;
+    sku?: string;
+    qty: number;
+    price: number;
+    isCustom?: boolean;
+}
+
+interface Transaction {
+    itemId: string;
+    type: 'IN' | 'OUT';
+    qty: number;
+    date?: string;
+    price?: number;
+    vendor?: string;
+}
+
+interface ForecastItem extends InventoryItem {
+    velocity: number;
+    daysRemaining: number;
+    status: 'Healthy' | 'Low' | 'Critical';
+    reorderQty: number;
+}
 
 interface StockOperationsProps {
     view: View;
 }
 
 const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
+    // Customer State
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
     const [showInvoice, setShowInvoice] = useState(false);
-    const [cart, setCart] = useState<{ id?: string; name: string; sku?: string; qty: number; price: number; isCustom?: boolean }[]>([]);
+    const [cart, setCart] = useState<CartItem[]>([]);
     const [isAddingItem, setIsAddingItem] = useState(false);
 
     // Sales Order State
     const [salesSearch, setSalesSearch] = useState('');
-    const [selectedSalesItem, setSelectedSalesItem] = useState<any>(null);
+    const [selectedSalesItem, setSelectedSalesItem] = useState<InventoryItem | null>(null);
     const [customItem, setCustomItem] = useState({ name: '', price: '' });
-    const [salesQty, setSalesQty] = useState(1); // Quantity for new item
+    const [salesQty, setSalesQty] = useState(1);
     const [showSalesSuggestions, setShowSalesSuggestions] = useState(false);
 
-    const [items, setItems] = useState<any[]>([]);
-    const [vendors, setVendors] = useState<string[]>([]); // Vendor History
+    // Inventory State
+    const [items, setItems] = useState<InventoryItem[]>([]);
+    const [vendors, setVendors] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
+    // Stock In State
     const [stockInSearch, setStockInSearch] = useState('');
-    const [selectedStockItem, setSelectedStockItem] = useState<any>(null);
+    const [selectedStockItem, setSelectedStockItem] = useState<InventoryItem | null>(null);
     const [stockInQty, setStockInQty] = useState('');
     const [stockInCost, setStockInCost] = useState('');
     const [stockInVendor, setStockInVendor] = useState('');
     const [stockInInvoice, setStockInInvoice] = useState('');
     const [showStockInSuccess, setShowStockInSuccess] = useState(false);
     const [showStockSuggestions, setShowStockSuggestions] = useState(false);
-    const [showVendorSuggestions, setShowVendorSuggestions] = useState(false); // Vendor Combobox State
+    const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
 
     // Audit State
     const [auditSearch, setAuditSearch] = useState('');
-    const [auditSelectedItem, setAuditSelectedItem] = useState<any>(null);
+    const [auditSelectedItem, setAuditSelectedItem] = useState<InventoryItem | null>(null);
     const [auditPhysicalCount, setAuditPhysicalCount] = useState('');
     const [auditReason, setAuditReason] = useState('Data Entry Error');
     const [showAuditSuccess, setShowAuditSuccess] = useState(false);
 
     // Forecasting State
-    const [forecastItems, setForecastItems] = useState<any[]>([]);
+    const [forecastItems, setForecastItems] = useState<ForecastItem[]>([]);
 
     // Checkout State
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-    const fetchData = async () => {
+    // Refs for click-outside handling
+    const salesDropdownRef = useRef<HTMLDivElement>(null);
+    const stockDropdownRef = useRef<HTMLDivElement>(null);
+    const vendorDropdownRef = useRef<HTMLDivElement>(null);
+
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        setFetchError(null);
+
+        let fetchedItems: InventoryItem[] = [];
+
         // Fetch Inventory (Critical)
         try {
             const itemsRes = await fetch('http://localhost:5001/api/inventory');
+            if (!itemsRes.ok) throw new Error(`HTTP error! status: ${itemsRes.status}`);
             const itemsData = await itemsRes.json();
 
             if (Array.isArray(itemsData)) {
+                fetchedItems = itemsData;
                 setItems(itemsData);
             } else {
                 console.error('Invalid items data:', itemsData);
+                setFetchError('Invalid data received from server');
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to fetch inventory:', error);
+            setFetchError('Failed to load inventory. Please check your connection.');
+            setIsLoading(false);
+            return;
         }
 
         // Fetch History (Non-Critical)
@@ -67,51 +125,71 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                 fetch('http://localhost:5001/api/vendors'),
                 fetch('http://localhost:5001/api/transactions')
             ]);
+
             const vendorsData = await vendorsRes.json();
-            const transData = await transRes.json();
+            const transData: Transaction[] = await transRes.json();
 
-            setVendors(vendorsData);
-
-            // Allow locally passed items or fallback to state items (though state might be stale)
-            const currentItems = itemsData || items;
+            if (Array.isArray(vendorsData)) {
+                setVendors(vendorsData);
+            }
 
             // Calculate Forecast only if we have items
-            if (currentItems.length > 0) {
+            if (fetchedItems.length > 0) {
                 const now = new Date();
-                const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-                const forecast = currentItems.map((item: any) => {
+                const forecast: ForecastItem[] = fetchedItems.map((item) => {
                     // Filter OUT transactions for this item in last 30 days
-                    const outTx = transData.filter((t: any) =>
+                    const outTx = transData.filter((t) =>
                         t.itemId === item.id &&
                         t.type === 'OUT' &&
                         new Date(t.date || '') >= thirtyDaysAgo
                     );
 
-                    const totalSold = outTx.reduce((sum: number, t: any) => sum + (t.qty || 0), 0);
-                    const velocity = totalSold / 30; // Units per day
+                    const totalSold = outTx.reduce((sum, t) => sum + (t.qty || 0), 0);
+                    const velocity = totalSold / 30;
                     const daysRemaining = velocity > 0 ? Math.floor(item.stock / velocity) : 999;
 
-                    let status = 'Healthy';
+                    let status: 'Healthy' | 'Low' | 'Critical' = 'Healthy';
                     if (daysRemaining < 7) status = 'Critical';
                     else if (daysRemaining < 14) status = 'Low';
 
-                    // Simple Reorder Recommendation (Target 30 days supply)
                     const targetStock = Math.ceil(velocity * 30);
                     const reorderQty = Math.max(0, targetStock - item.stock);
 
                     return { ...item, velocity, daysRemaining, status, reorderQty };
-                }).sort((a: any, b: any) => a.daysRemaining - b.daysRemaining);
+                }).sort((a, b) => a.daysRemaining - b.daysRemaining);
+
                 setForecastItems(forecast);
             }
         } catch (error) {
-            console.error('Failed to fetch history:', error);
+            console.error('Failed to fetch history (non-critical):', error);
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, []);
 
-    React.useEffect(() => {
+    // Click outside handler for dropdowns
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (salesDropdownRef.current && !salesDropdownRef.current.contains(event.target as Node)) {
+                setShowSalesSuggestions(false);
+            }
+            if (stockDropdownRef.current && !stockDropdownRef.current.contains(event.target as Node)) {
+                setShowStockSuggestions(false);
+            }
+            if (vendorDropdownRef.current && !vendorDropdownRef.current.contains(event.target as Node)) {
+                setShowVendorSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
         fetchData();
-    }, [view]);
+    }, [view, fetchData]);
 
     const filteredStockItems = items.filter(item =>
         item.name.toLowerCase().includes(stockInSearch.toLowerCase()) ||
@@ -240,17 +318,20 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
         (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
     ).slice(0, 5);
 
-    const addItemToCart = (e?: React.MouseEvent) => {
+    const addItemToCart = useCallback((e?: React.MouseEvent) => {
         if (e) e.preventDefault();
-        console.log("Adding item to cart", { selectedSalesItem, customItem, salesQty });
 
         if (selectedSalesItem) {
-            setCart([...cart, {
+            const price = typeof selectedSalesItem.price === 'string'
+                ? parseFloat(selectedSalesItem.price.replace(/[^0-9.]/g, ''))
+                : Number(selectedSalesItem.price);
+
+            setCart(prev => [...prev, {
                 id: selectedSalesItem.id,
                 name: selectedSalesItem.name,
                 sku: selectedSalesItem.sku,
                 qty: salesQty,
-                price: typeof selectedSalesItem.price === 'string' ? parseFloat(selectedSalesItem.price.replace(/[^0-9.]/g, '')) : Number(selectedSalesItem.price),
+                price: isNaN(price) ? 0 : price,
                 isCustom: false
             }]);
             setSelectedSalesItem(null);
@@ -258,29 +339,30 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
             setSalesQty(1);
             setIsAddingItem(false);
         } else if (customItem.name && customItem.price) {
-            setCart([...cart, {
+            const price = parseFloat(customItem.price);
+            setCart(prev => [...prev, {
                 name: customItem.name,
                 qty: salesQty,
-                price: parseFloat(customItem.price),
+                price: isNaN(price) ? 0 : price,
                 isCustom: true
             }]);
             setCustomItem({ name: '', price: '' });
             setSalesQty(1);
             setIsAddingItem(false);
         }
-    };
+    }, [selectedSalesItem, customItem, salesQty]);
 
-    const updateCartQty = (index: number, change: number) => {
-        const newCart = [...cart];
-        newCart[index].qty += change;
-        if (newCart[index].qty < 1) newCart[index].qty = 1;
-        setCart(newCart);
-    };
+    const updateCartQty = useCallback((index: number, change: number) => {
+        setCart(prev => {
+            const newCart = [...prev];
+            newCart[index] = { ...newCart[index], qty: Math.max(1, newCart[index].qty + change) };
+            return newCart;
+        });
+    }, []);
 
-    const removeFromCart = (index: number) => {
-        const newCart = cart.filter((_, i) => i !== index);
-        setCart(newCart);
-    };
+    const removeFromCart = useCallback((index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    }, []);
 
     const handleCheckout = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -347,7 +429,48 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
         }
     };
 
-    const calculateTotal = () => cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    const calculateTotal = useCallback(() => {
+        return cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    }, [cart]);
+
+    // Memoized filtered items to avoid recalculating on every render
+    const filteredSalesItemsMemo = React.useMemo(() => {
+        if (!salesSearch) return items;
+        const search = salesSearch.toLowerCase();
+        return items.filter(item =>
+            (item.name?.toLowerCase().includes(search)) ||
+            (item.sku?.toLowerCase().includes(search))
+        ).slice(0, 10);
+    }, [items, salesSearch]);
+
+    if (isLoading && items.length === 0) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#101922]">
+                <div className="text-center">
+                    <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
+                    <p className="text-slate-400 mt-2">Loading inventory...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (fetchError && items.length === 0) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#101922]">
+                <div className="text-center max-w-md p-6">
+                    <span className="material-symbols-outlined text-4xl text-red-400">error</span>
+                    <p className="text-red-400 mt-2 font-bold">Connection Error</p>
+                    <p className="text-slate-400 text-sm mt-1">{fetchError}</p>
+                    <button
+                        onClick={fetchData}
+                        className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (view === 'stock-out') {
         return (
@@ -429,7 +552,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                     </div>
 
                                                     {/* Custom Dropdown / Search */}
-                                                    <div className="relative">
+                                                    <div className="relative" ref={salesDropdownRef}>
                                                         <div
                                                             className="flex items-center bg-[#1b2127] border border-[#3b4754] rounded-lg h-10 px-3 cursor-text focus-within:border-primary transition-colors"
                                                             onClick={() => {
@@ -468,16 +591,8 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                         {/* Dropdown List */}
                                                         {showSalesSuggestions && (
                                                             <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
-                                                                {items.filter(item =>
-                                                                    !salesSearch ||
-                                                                    (item.name && item.name.toLowerCase().includes(salesSearch.toLowerCase())) ||
-                                                                    (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
-                                                                ).length > 0 ? (
-                                                                    items.filter(item =>
-                                                                        !salesSearch ||
-                                                                        (item.name && item.name.toLowerCase().includes(salesSearch.toLowerCase())) ||
-                                                                        (item.sku && item.sku.toLowerCase().includes(salesSearch.toLowerCase()))
-                                                                    ).map(item => (
+                                                                {filteredSalesItemsMemo.length > 0 ? (
+                                                                    filteredSalesItemsMemo.map(item => (
                                                                         <button
                                                                             key={item.id}
                                                                             type="button"
@@ -495,7 +610,9 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                                             </div>
                                                                             <div className="text-right">
                                                                                 <p className="text-xs text-slate-400">Stock</p>
-                                                                                <p className="text-white font-mono font-bold text-emerald-400">{item.stock}</p>
+                                                                                <p className={`font-mono font-bold ${item.stock > 10 ? 'text-emerald-400' : item.stock > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                                                    {item.stock}
+                                                                                </p>
                                                                             </div>
                                                                         </button>
                                                                     ))
@@ -571,7 +688,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
 
                                     <div className="space-y-3">
                                         {cart.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center group bg-white/5 p-3 rounded-lg border border-transparent hover:border-white/10 transition">
+                                            <div key={`cart-${idx}-${item.name}`} className="flex justify-between items-center group bg-white/5 p-3 rounded-lg border border-transparent hover:border-white/10 transition">
                                                 <div className="flex items-center gap-3">
                                                     <button onClick={() => removeFromCart(idx)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"><span className="material-symbols-outlined text-sm">close</span></button>
                                                     <div>
@@ -962,7 +1079,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Select Vendor</label>
-                                    <div className="relative">
+                                    <div className="relative" ref={vendorDropdownRef}>
                                         <input
                                             value={stockInVendor}
                                             onChange={(e) => {
@@ -970,16 +1087,17 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                 setShowVendorSuggestions(true);
                                             }}
                                             onFocus={() => setShowVendorSuggestions(true)}
-                                            onBlur={() => setTimeout(() => setShowVendorSuggestions(false), 200)}
-                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3"
+                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 focus:border-primary outline-none"
                                             placeholder="e.g. TechSupplies Global"
+                                            aria-label="Vendor name"
+                                            autoComplete="off"
                                         />
                                         {/* Vendor Suggestions */}
                                         {showVendorSuggestions && (
                                             <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto">
                                                 {filteredVendors.length > 0 ? filteredVendors.map((v, i) => (
                                                     <button
-                                                        key={i}
+                                                        key={`vendor-${i}-${v}`}
                                                         type="button"
                                                         className="w-full text-left p-2.5 hover:bg-white/5 border-b border-white/5 last:border-0 text-sm text-white"
                                                         onClick={() => {
@@ -1017,7 +1135,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Search Product</label>
-                                    <div className="relative">
+                                    <div className="relative" ref={stockDropdownRef}>
                                         <input
                                             value={stockInSearch}
                                             onChange={(e) => {
@@ -1026,9 +1144,10 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                 if (!e.target.value) setSelectedStockItem(null);
                                             }}
                                             onFocus={() => setShowStockSuggestions(true)}
-                                            onBlur={() => setTimeout(() => setShowStockSuggestions(false), 200)}
-                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 pl-10"
+                                            className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 pl-10 focus:border-primary outline-none"
                                             placeholder="Search by name or SKU..."
+                                            aria-label="Search products"
+                                            autoComplete="off"
                                         />
                                         <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                                             <span className="material-symbols-outlined text-[18px]">search</span>
@@ -1039,13 +1158,13 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                             <div className="absolute top-full left-0 w-full mt-1 bg-[#232d36] border border-white/10 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
                                                 {filteredStockItems.length > 0 ? filteredStockItems.map(item => (
                                                     <button
-                                                        key={item.id}
+                                                        key={`stock-${item.id}`}
                                                         type="button"
                                                         className="w-full text-left p-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
                                                         onClick={() => {
                                                             setSelectedStockItem(item);
                                                             setStockInSearch(item.name);
-                                                            setStockInCost(item.price); // Default to current price
+                                                            setStockInCost(String(item.price));
                                                             setShowStockSuggestions(false);
                                                         }}
                                                     >
@@ -1055,7 +1174,9 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                                                         </div>
                                                         <div className="text-right">
                                                             <p className="text-xs text-slate-400">Current Stock</p>
-                                                            <p className="text-white font-mono font-bold">{item.stock}</p>
+                                                            <p className={`font-mono font-bold ${item.stock > 10 ? 'text-emerald-400' : item.stock > 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                                {item.stock}
+                                                            </p>
                                                         </div>
                                                     </button>
                                                 )) : (
@@ -1113,8 +1234,15 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view }) => {
                         </div>
 
                         <div className="flex justify-end gap-4 pt-4">
-                            <button className="px-6 py-2 text-white hover:bg-white/5 rounded">Cancel</button>
-                            <button type="submit" className="px-8 py-2 bg-primary text-white font-bold rounded shadow-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!selectedStockItem || !stockInQty}>
+                            <button type="button" className="px-6 py-2 text-white hover:bg-white/5 rounded transition" onClick={() => {
+                                setSelectedStockItem(null);
+                                setStockInSearch('');
+                                setStockInQty('');
+                                setStockInCost('');
+                                setStockInVendor('');
+                                setStockInInvoice('');
+                            }}>Cancel</button>
+                            <button type="submit" className="px-8 py-2 bg-primary text-white font-bold rounded shadow-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition" disabled={!selectedStockItem || !stockInQty}>
                                 Confirm Stock In
                             </button>
                         </div>
