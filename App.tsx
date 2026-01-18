@@ -32,6 +32,7 @@ const App: React.FC = () => {
       .catch(err => console.error('Backend connection detailed error:', err));
   }, []);
 
+  const [viewParams, setViewParams] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -41,15 +42,22 @@ const App: React.FC = () => {
     localStorage.removeItem('user');
     setIsAuth(false);
     setCurrentView('dashboard');
+    setViewParams(null);
+  };
+
+  const handleSetView = (view: View, params?: any) => {
+    setCurrentView(view);
+    setViewParams(params || null);
+    setIsSidebarOpen(false);
   };
 
   if (!isAuth) {
-    return <Auth currentView="login" setView={setCurrentView} setIsAuth={setIsAuth} />;
+    return <Auth currentView="login" setView={handleSetView} setIsAuth={setIsAuth} />;
   }
 
   // Mobile Scanner View (Fullscreen, no layout)
   if (currentView === 'scanner') {
-    return <Admin view={currentView} userRole={userRole} setView={setCurrentView} />;
+    return <Admin view={currentView} userRole={userRole} setView={handleSetView} />;
   }
   // v
   return (
@@ -65,10 +73,7 @@ const App: React.FC = () => {
       {/* Sidebar */}
       <Sidebar
         currentView={currentView}
-        setView={(view) => {
-          setCurrentView(view);
-          setIsSidebarOpen(false);
-        }}
+        setView={handleSetView}
         userRole={userRole}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -131,12 +136,12 @@ const App: React.FC = () => {
 
         {/* Dynamic View Content */}
         <main className="flex-1 overflow-hidden relative">
-          {currentView === 'dashboard' && <Dashboard setView={setCurrentView} />}
-          {currentView === 'forecasting' && <Dashboard setView={setCurrentView} showForecasting={true} />}
+          {currentView === 'dashboard' && <Dashboard setView={handleSetView} />}
+          {currentView === 'forecasting' && <Dashboard setView={handleSetView} showForecasting={true} />}
           {currentView === 'users' && <Users />}
 
           {(currentView === 'inventory' || currentView === 'families') &&
-            <Inventory view={currentView} userRole={userRole} />
+            <Inventory view={currentView} userRole={userRole} initialFilter={viewParams?.filter} />
           }
 
           {(currentView === 'stock-in' || currentView === 'stock-out' || currentView === 'audit') &&
@@ -146,7 +151,7 @@ const App: React.FC = () => {
           {currentView === 'analytics' && <Analytics userRole={userRole} />}
 
           {(currentView === 'team' || currentView === 'export' || currentView === 'barcodes') &&
-            <Admin view={currentView} userRole={userRole} setView={setCurrentView} />
+            <Admin view={currentView} userRole={userRole} setView={handleSetView} />
           }
         </main>
       </div>
