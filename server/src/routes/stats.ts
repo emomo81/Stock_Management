@@ -227,8 +227,8 @@ router.get('/analytics', async (req, res) => {
 
             profitData.push({
                 name: dayName,
-                revenue: Math.round(dayRevenue / 100) / 10, // Convert to K (thousands)
-                profit: Math.round((dayRevenue - dayCost) / 100) / 10
+                revenue: Math.round(dayRevenue * 100) / 100, // Keep actual dollar values with 2 decimal places
+                profit: Math.round((dayRevenue - dayCost) * 100) / 100
             });
         }
 

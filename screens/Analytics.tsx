@@ -200,13 +200,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                         {profitData.length > 0 ? (
                             <div className="flex-1 w-full min-h-[300px] min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={profitData}>
+                                    <BarChart data={profitData} barGap={4}>
                                         <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1b2127', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
-                                        <Bar dataKey="revenue" stackId="a" fill="#334155" radius={[0, 0, 0, 0]} barSize={32} name="Revenue (K)" />
-                                        <Bar dataKey="profit" stackId="a" fill="#1985f0" radius={[4, 4, 0, 0]} barSize={32} name="Profit (K)">
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#1b2127', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} formatter={(value: number) => [`$${value.toFixed(2)}`, undefined]} />
+                                        <Bar dataKey="revenue" fill="#334155" radius={[4, 4, 0, 0]} barSize={24} name="Revenue">
                                             {profitData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fillOpacity={0.8 + (index * 0.02)} />
+                                                <Cell key={`rev-${index}`} fillOpacity={0.9} />
+                                            ))}
+                                        </Bar>
+                                        <Bar dataKey="profit" fill="#1985f0" radius={[4, 4, 0, 0]} barSize={24} name="Profit">
+                                            {profitData.map((entry, index) => (
+                                                <Cell key={`prof-${index}`} fill={entry.profit >= 0 ? '#0bda5b' : '#ef4444'} fillOpacity={0.9} />
                                             ))}
                                         </Bar>
                                     </BarChart>
