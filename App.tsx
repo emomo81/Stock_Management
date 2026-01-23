@@ -95,8 +95,6 @@ const App: React.FC = () => {
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <span className="material-symbols-outlined cursor-pointer hover:text-white hidden md:block">menu</span>
-            <div className="h-4 w-px bg-white/10 hidden md:block"></div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-white font-medium capitalize">{currentView ? currentView.replace('-', ' ') : 'Dashboard'}</span>
             </div>
