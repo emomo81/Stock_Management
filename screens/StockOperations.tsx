@@ -458,7 +458,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
     if (isLoading && items.length === 0) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-[#101922]">
+            <div className="flex-1 flex items-center justify-center bg-transparent">
                 <div className="text-center">
                     <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
                     <p className="text-slate-400 mt-2">Loading inventory...</p>
@@ -469,7 +469,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
     if (fetchError && items.length === 0) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-[#101922]">
+            <div className="flex-1 flex items-center justify-center bg-transparent">
                 <div className="text-center max-w-md p-6">
                     <span className="material-symbols-outlined text-4xl text-red-400">error</span>
                     <p className="text-red-400 mt-2 font-bold">Connection Error</p>
@@ -487,7 +487,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
     if (view === 'stock-out') {
         return (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#101922]">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-transparent">
                 <div className="max-w-4xl mx-auto flex flex-col gap-6">
                     <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                         <div>
@@ -1086,7 +1086,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
     // Stock In View
     return (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#101922]">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-transparent">
             <div className="max-w-4xl mx-auto flex flex-col gap-6">
                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                     <div>

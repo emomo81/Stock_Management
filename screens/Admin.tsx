@@ -134,7 +134,7 @@ const DataExportView: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#111418] relative">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-transparent relative">
             <div className="absolute top-0 right-0 p-32 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
             <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-12 gap-6">
                 <div className="xl:col-span-7 flex flex-col gap-6">

@@ -7,6 +7,7 @@ import Admin from './screens/Admin';
 import Auth from './screens/Auth';
 import StockOperations from './screens/StockOperations';
 import Users from './screens/Users';
+import FloatingLines from './components/FloatingLines';
 
 import { View, UserRole } from './types';
 // stock managment system
@@ -186,23 +187,37 @@ const App: React.FC = () => {
 
         {/* Dynamic View Content */}
         <main className="flex-1 overflow-hidden relative">
-          {currentView === 'dashboard' && <Dashboard setView={handleSetView} />}
-          {currentView === 'forecasting' && <Dashboard setView={handleSetView} showForecasting={true} />}
-          {currentView === 'users' && <Users />}
+          <div className="absolute inset-0 z-0 pointer-events-auto">
+            <FloatingLines
+              enabledWaves={["top", "middle", "bottom"]}
+              lineCount={5}
+              lineDistance={5}
+              bendRadius={5}
+              bendStrength={-0.5}
+              interactive={true}
+              parallax={true}
+            />
+          </div>
+          
+          <div className="relative z-10 w-full h-full flex flex-col">
+            {currentView === 'dashboard' && <Dashboard setView={handleSetView} />}
+            {currentView === 'forecasting' && <Dashboard setView={handleSetView} showForecasting={true} />}
+            {currentView === 'users' && <Users />}
 
-          {(currentView === 'inventory' || currentView === 'families') &&
-            <Inventory view={currentView} userRole={userRole} initialFilter={viewParams?.filter} initialSearch={viewParams?.search} />
-          }
+            {(currentView === 'inventory' || currentView === 'families') &&
+              <Inventory view={currentView} userRole={userRole} initialFilter={viewParams?.filter} initialSearch={viewParams?.search} />
+            }
 
-          {(currentView === 'stock-in' || currentView === 'stock-out' || currentView === 'audit') &&
-            <StockOperations view={currentView} addNotification={(n) => setNotifications(prev => [n, ...prev])} />
-          }
+            {(currentView === 'stock-in' || currentView === 'stock-out' || currentView === 'audit') &&
+              <StockOperations view={currentView} addNotification={(n) => setNotifications(prev => [n, ...prev])} />
+            }
 
-          {currentView === 'analytics' && <Analytics userRole={userRole} />}
+            {currentView === 'analytics' && <Analytics userRole={userRole} />}
 
-          {(currentView === 'team' || currentView === 'export' || currentView === 'barcodes') &&
-            <Admin view={currentView} userRole={userRole} setView={handleSetView} />
-          }
+            {(currentView === 'team' || currentView === 'export' || currentView === 'barcodes') &&
+              <Admin view={currentView} userRole={userRole} setView={handleSetView} />
+            }
+          </div>
         </main>
       </div>
     </div>
