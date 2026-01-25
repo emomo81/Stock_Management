@@ -124,7 +124,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
 
     if (userRole === 'staff') {
         return (
-            <div className="flex-1 flex items-center justify-center p-8 bg-[#101922] h-full">
+            <div className="flex-1 flex items-center justify-center p-8 bg-transparent h-full">
                 <div className="glass-panel w-full max-w-lg p-10 rounded-2xl flex flex-col items-center text-center border-t border-white/10 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent"></div>
                     <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
@@ -153,7 +153,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
 
     if (loading) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#101922] h-full">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-transparent h-full">
                 <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-2">progress_activity</span>
                 <p className="text-slate-400">Loading Analytics...</p>
             </div>
@@ -162,7 +162,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
 
     if (error) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#101922] h-full">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-transparent h-full">
                 <span className="material-symbols-outlined text-4xl text-red-400 mb-2">error</span>
                 <p className="text-red-400 font-bold">Connection Error</p>
                 <p className="text-sm text-slate-400">{error}</p>
@@ -187,7 +187,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
     const marginTrend = parseFloat(stats.netMargin) > 0;
 
     return (
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#101922]">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-transparent">
             <div className="max-w-7xl mx-auto flex flex-col gap-6">
                 <div className="flex justify-between items-end">
                     <div>

@@ -40,7 +40,7 @@ const Users: React.FC = () => {
     };
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#101922] bg-[radial-gradient(at_0%_0%,_rgba(25,133,240,0.15)_0px,_transparent_50%)] h-full">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-transparent h-full">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8">
                     <h1 className="text-3xl font-black text-white tracking-tight mb-2">Team Management</h1>

@@ -128,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
 
   if (loading) {
     return (
-      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-[#101922]">
+      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-transparent">
         <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-2">progress_activity</span>
         {showForecasting ? 'Loading Forecasting...' : 'Loading Dashboard...'}
       </div>
@@ -137,7 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
 
   if (error) {
     return (
-      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-[#101922]">
+      <div className="flex-1 p-6 md:p-8 flex flex-col items-center justify-center text-slate-500 bg-transparent">
         <span className="material-symbols-outlined text-4xl text-red-400 mb-2">error</span>
         <p className="text-red-400 font-bold">Connection Error</p>
         <p className="text-sm">{error}</p>
@@ -170,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
 
   if (showForecasting) {
     return (
-      <div className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#101922] h-full">
+      <div className="flex-1 overflow-y-auto p-6 lg:p-8 bg-transparent h-full">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -350,142 +350,144 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col bg-[#101922]">
-      {/* Alert Banner */}
-      {/* Alert Banner */}
-      {stats.lowStock > 0 && !showForecasting && (
-        <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start justify-between animate-in slide-in-from-top-2 fade-in duration-500">
-          <div className="flex gap-4">
-            <div className="size-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-red-500">warning</span>
+    <div className="flex-1 relative overflow-hidden bg-transparent flex flex-col h-full">
+      {/* Scrollable Content */}
+      <div className="relative z-10 flex-1 overflow-y-auto p-6 md:p-8 flex flex-col">
+        {/* Alert Banner */}
+        {stats.lowStock > 0 && !showForecasting && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start justify-between animate-in slide-in-from-top-2 fade-in duration-500">
+            <div className="flex gap-4">
+              <div className="size-10 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-red-500">warning</span>
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-sm">Critical Stock Alert</h3>
+                <p className="text-slate-400 text-xs mt-1">{stats.lowStock} items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => setView('inventory', { filter: 'low' })} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
+                </div>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex flex-col gap-6 mb-8 flex-shrink-0">
+          <div className="flex justify-between items-end">
             <div>
-              <h3 className="text-white font-bold text-sm">Critical Stock Alert</h3>
-              <p className="text-slate-400 text-xs mt-1">{stats.lowStock} items have dropped below safety stock levels. Immediate reorder required to avoid fulfillment delays.</p>
-              <div className="flex gap-2 mt-3">
-                <button onClick={() => setView('inventory', { filter: 'low' })} className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20">View Items</button>
-              </div>
+              <h2 className="text-3xl font-bold text-white tracking-tight">Product Inventory</h2>
+              <p className="text-slate-400 mt-1">View current stock levels and product details.</p>
+            </div>
+            <div className="flex gap-3">
+              <button className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all border border-white/5">
+                <span className="material-symbols-outlined text-[18px]">file_download</span>
+                Export
+              </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Header */}
-      <div className="flex flex-col gap-6 mb-8 flex-shrink-0">
-        <div className="flex justify-between items-end">
-          <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">Product Inventory</h2>
-            <p className="text-slate-400 mt-1">View current stock levels and product details.</p>
-          </div>
-          <div className="flex gap-3">
-            <button className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all border border-white/5">
-              <span className="material-symbols-outlined text-[18px]">file_download</span>
-              Export
-            </button>
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total SKUs', value: stats.totalSKUs, change: '+12%', color: 'text-white', icon: 'inventory_2', iconColor: 'text-white' },
+              { label: 'Low Stock', value: stats.lowStock, change: 'Action Needed', color: 'text-white', icon: 'warning', iconColor: 'text-orange-400', badgeColor: 'bg-orange-400/10 text-orange-400' },
+              { label: 'AI Insights', value: '12', change: '3 New', color: 'text-white', icon: 'auto_awesome', iconColor: 'text-purple-400', badgeColor: 'bg-purple-400/10 text-purple-400' },
+              { label: 'Total Value', value: stats.totalValue, change: '+0.8%', color: 'text-white', icon: 'attach_money', iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-400/10 text-emerald-400' },
+            ].map((stat, i) => (
+              <div key={i} className="glass-panel p-5 rounded-xl flex flex-col gap-1 relative overflow-hidden group hover:border-white/20 transition-all cursor-pointer" onClick={() => i === 2 && setView('forecasting')}>
+                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <span className={`material-symbols-outlined text-4xl ${stat.iconColor}`}>{stat.icon}</span>
+                </div>
+                <span className="text-slate-400 text-sm font-medium">{stat.label}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl font-bold ${stat.color}`}>{stat.value}</span>
+                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${stat.badgeColor || 'bg-emerald-400/10 text-emerald-400'}`}>{stat.change}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: 'Total SKUs', value: stats.totalSKUs, change: '+12%', color: 'text-white', icon: 'inventory_2', iconColor: 'text-white' },
-            { label: 'Low Stock', value: stats.lowStock, change: 'Action Needed', color: 'text-white', icon: 'warning', iconColor: 'text-orange-400', badgeColor: 'bg-orange-400/10 text-orange-400' },
-            { label: 'AI Insights', value: '12', change: '3 New', color: 'text-white', icon: 'auto_awesome', iconColor: 'text-purple-400', badgeColor: 'bg-purple-400/10 text-purple-400' },
-            { label: 'Total Value', value: stats.totalValue, change: '+0.8%', color: 'text-white', icon: 'attach_money', iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-400/10 text-emerald-400' },
-          ].map((stat, i) => (
-            <div key={i} className="glass-panel p-5 rounded-xl flex flex-col gap-1 relative overflow-hidden group hover:border-white/20 transition-all cursor-pointer" onClick={() => i === 2 && setView('forecasting')}>
-              <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className={`material-symbols-outlined text-4xl ${stat.iconColor}`}>{stat.icon}</span>
-              </div>
-              <span className="text-slate-400 text-sm font-medium">{stat.label}</span>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-2xl font-bold ${stat.color}`}>{stat.value}</span>
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${stat.badgeColor || 'bg-emerald-400/10 text-emerald-400'}`}>{stat.change}</span>
-              </div>
+        {/* Main Content Area */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Fast Movers Table */}
+          <div className="glass-panel rounded-xl flex-1 flex flex-col h-[400px]">
+            <div className="p-5 border-b border-white/5 flex justify-between items-center">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-cyan-400">rocket_launch</span>
+                Fast Movers
+              </h3>
+              <span className="text-xs text-white bg-cyan-500/20 px-2 py-1 rounded border border-cyan-500/30">
+                {fastMovers.length} Items
+              </span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Fast Movers Table */}
-        <div className="glass-panel rounded-xl flex-1 flex flex-col h-[400px]">
-          <div className="p-5 border-b border-white/5 flex justify-between items-center">
-            <h3 className="font-bold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-cyan-400">rocket_launch</span>
-              Fast Movers
-            </h3>
-            <span className="text-xs text-white bg-cyan-500/20 px-2 py-1 rounded border border-cyan-500/30">
-              {fastMovers.length} Items
-            </span>
-          </div>
-          <div className="flex-1 overflow-auto p-2">
-            {fastMovers.length > 0 ? (
-              fastMovers.map((item, i) => (
-                <div key={`fast-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg group transition-colors cursor-pointer" onClick={() => setView('inventory')}>
-                  <div className="flex items-center gap-4">
-                    <span className="text-slate-500 font-bold w-6">{item.rank}</span>
-                    <div className="size-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-slate-400">inventory_2</span>
+            <div className="flex-1 overflow-auto p-2">
+              {fastMovers.length > 0 ? (
+                fastMovers.map((item, i) => (
+                  <div key={`fast-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg group transition-colors cursor-pointer" onClick={() => setView('inventory')}>
+                    <div className="flex items-center gap-4">
+                      <span className="text-slate-500 font-bold w-6">{item.rank}</span>
+                      <div className="size-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-slate-400">inventory_2</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{item.name}</p>
+                        <p className="text-xs text-slate-500">{item.sold.toLocaleString()} units sold</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{item.name}</p>
-                      <p className="text-xs text-slate-500">{item.sold.toLocaleString()} units sold</p>
+                    <div className="flex flex-col items-end">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-emerald-400/10 text-emerald-400`}>
+                        <span className="material-symbols-outlined text-default">trending_up</span> {item.trend}
+                      </span>
+                      <span className="text-xs text-slate-500 mt-1">Stock: {item.stock}</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 bg-emerald-400/10 text-emerald-400`}>
-                      <span className="material-symbols-outlined text-[10px]">trending_up</span> {item.trend}
-                    </span>
-                    <span className="text-xs text-slate-500 mt-1">Stock: {item.stock}</span>
-                  </div>
+                ))
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
+                  <span className="material-symbols-outlined text-3xl mb-2 opacity-50">inventory_2</span>
+                  <p className="text-sm">No fast movers yet</p>
+                  <p className="text-xs">Sales data will appear here</p>
                 </div>
-              ))
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
-                <span className="material-symbols-outlined text-3xl mb-2 opacity-50">inventory_2</span>
-                <p className="text-sm">No fast movers yet</p>
-                <p className="text-xs">Sales data will appear here</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Dead Stock */}
-        <div className="glass-panel rounded-xl flex-1 flex flex-col h-[400px]">
-          <div className="p-5 border-b border-white/5 flex justify-between items-center">
-            <h3 className="font-bold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-rose-400">hourglass_disabled</span>
-              Dead Stock
-            </h3>
-            <span className="text-xs text-white bg-rose-500/20 px-2 py-1 rounded border border-rose-500/30">
-              {deadStock.length} Items
-            </span>
-          </div>
-          <div className="flex-1 overflow-auto p-2">
-            {deadStock.length > 0 ? (
-              deadStock.map((item, i) => (
-                <div key={`dead-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg border border-transparent hover:border-rose-500/20 transition-all cursor-pointer" onClick={() => setView('inventory')}>
-                  <div className="flex items-center gap-4">
-                    <div className="size-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-rose-400">inventory</span>
+          {/* Dead Stock */}
+          <div className="glass-panel rounded-xl flex-1 flex flex-col h-[400px]">
+            <div className="p-5 border-b border-white/5 flex justify-between items-center">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-rose-400">hourglass_disabled</span>
+                Dead Stock
+              </h3>
+              <span className="text-xs text-white bg-rose-500/20 px-2 py-1 rounded border border-rose-500/30">
+                {deadStock.length} Items
+              </span>
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+              {deadStock.length > 0 ? (
+                deadStock.map((item, i) => (
+                  <div key={`dead-${item.sku}-${i}`} className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg border border-transparent hover:border-rose-500/20 transition-all cursor-pointer" onClick={() => setView('inventory')}>
+                    <div className="flex items-center gap-4">
+                      <div className="size-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-rose-400">inventory</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{item.name}</p>
+                        <p className="text-xs text-slate-500">Stock: {item.stock} • {item.value}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{item.name}</p>
-                      <p className="text-xs text-slate-500">Stock: {item.stock} • {item.value}</p>
-                    </div>
+                    <span className="text-xs font-bold text-rose-400 bg-rose-400/10 px-2 py-1 rounded">{item.days}</span>
                   </div>
-                  <span className="text-xs font-bold text-rose-400 bg-rose-400/10 px-2 py-1 rounded">{item.days}</span>
+                ))
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
+                  <span className="material-symbols-outlined text-3xl mb-2 opacity-50">check_circle</span>
+                  <p className="text-sm">No dead stock</p>
+                  <p className="text-xs">All inventory is moving well</p>
                 </div>
-              ))
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-8">
-                <span className="material-symbols-outlined text-3xl mb-2 opacity-50">check_circle</span>
-                <p className="text-sm">No dead stock</p>
-                <p className="text-xs">All inventory is moving well</p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { View } from '../types';
+import { LaserFlow } from '../components/LaserFlow';
 
 interface AuthProps {
   currentView: 'login' | 'register';
@@ -9,9 +10,20 @@ interface AuthProps {
 
 const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
   const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('password123'); // Default for demo convenience
+  const [password, setPassword] = React.useState('password123');
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    containerRef.current.style.setProperty('--mouse-x', `${x}px`);
+    containerRef.current.style.setProperty('--mouse-y', `${y}px`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,14 +55,54 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#101922] flex items-center justify-center relative overflow-hidden font-sans text-white">
-      {/* Background Ambience */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-primary/20 blur-[130px] opacity-70 animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-cyan-500/10 blur-[100px] opacity-60"></div>
+    <div 
+      className="min-h-screen w-full bg-[#060010] flex items-center justify-center relative overflow-hidden font-sans text-white"
+      onMouseMove={handleMouseMove}
+    >
+      {/* Laser Flow Background */}
+      <div className="absolute inset-0 z-0 pointer-events-auto">
+         <LaserFlow
+           horizontalBeamOffset={0}
+           verticalBeamOffset={-0.4}
+           color="#CF9EFF"
+           horizontalSizing={0.5}
+           verticalSizing={2}
+           wispDensity={1}
+           wispSpeed={15}
+           wispIntensity={5}
+           flowSpeed={0.35}
+           flowStrength={0.25}
+           fogIntensity={0.45}
+           fogScale={0.3}
+           fogFallSpeed={0.6}
+           decay={1.1}
+           falloffStart={1.2}
+         />
+      </div>
 
-      <div className="relative z-10 w-full max-w-md px-4">
-        <div className="glass-panel rounded-2xl p-8 border-t border-white/10 shadow-2xl">
-          <div className="flex flex-col items-center text-center mb-8">
+      {/* Dot Pattern Background - Bottom Area */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 top-[40%] z-0 opacity-20 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(#a5b4fc 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+          maskImage: 'linear-gradient(to bottom, transparent, black 20%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 20%)'
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-md px-4" ref={containerRef}>
+        <div className="glass-panel rounded-2xl p-8 border-t border-white/10 shadow-2xl backdrop-blur-xl bg-surface/40 relative group overflow-hidden">
+           {/* Reveal Effect Border */}
+           <div 
+             className="absolute inset-0 rounded-2xl border-2 border-[#CF9EFF] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+             style={{
+               maskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
+               WebkitMaskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
+             }}
+           />
+           
+          <div className="flex flex-col items-center text-center mb-8 relative z-10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-400 shadow-lg shadow-primary/25">
               <span className="material-symbols-outlined text-4xl text-white">inventory_2</span>
             </div>
@@ -62,7 +114,7 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
             </p>
           </div>
 
-          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+          <form className="flex flex-col gap-5 relative z-10" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
                 {error}
@@ -71,12 +123,12 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase text-slate-400 ml-1">Email Address</label>
-              <div className="relative group">
+              <div className="relative group/input">
                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">mail</span>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all"
+                  className="w-full bg-[#1b2127]/60 border border-white/10 rounded-xl h-12 pl-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/40 outline-none transition-all"
                   placeholder="user@company.com"
                   type="email"
                   required
@@ -89,12 +141,12 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
                 <label className="text-xs font-bold uppercase text-slate-400">Password</label>
                 <a href="#" className="text-xs text-primary hover:underline">Forgot?</a>
               </div>
-              <div className="relative group">
+              <div className="relative group/input">
                 <span className="material-symbols-outlined absolute left-4 top-3.5 text-[#9cabba]">lock</span>
                 <input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#1b2127]/50 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/20 outline-none transition-all"
+                  className="w-full bg-[#1b2127]/60 border border-white/10 rounded-xl h-12 pl-12 pr-12 text-white placeholder:text-slate-600 focus:border-primary focus:bg-black/40 outline-none transition-all"
                   placeholder="••••••••"
                   type="password"
                   required
@@ -109,7 +161,7 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-white/5 text-center">
+          <div className="mt-6 pt-6 border-t border-white/5 text-center relative z-10">
             <p className="text-sm text-[#9cabba]">
               Restricted Access. Employee Login Only.
             </p>
