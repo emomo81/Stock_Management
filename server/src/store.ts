@@ -1,5 +1,6 @@
-import db from './db';
-import { v4 as uuidv4 } from 'uuid';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export interface InventoryItem {
     id: string;
@@ -33,152 +34,142 @@ export interface User {
 
 // --- Inventory Operations ---
 
-export const getItems = (): Promise<InventoryItem[]> => {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM inventory", (err, rows) => {
-            if (err) reject(err);
-            else {
-                const items = rows.map((row: any) => ({
-                    ...row,
-                    attributes: row.attributes ? JSON.parse(row.attributes) : {}
-                }));
-                resolve(items as InventoryItem[]);
-            }
-        });
-    });
+export const getItems = async (): Promise<InventoryItem[]> => {
+    const items = await prisma.inventory.findMany();
+    return items.map(item => ({
+        ...item,
+        attributes: item.attributes ? JSON.parse(item.attributes) : {}
+    }));
 };
 
-export const addItem = (item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
-    return new Promise((resolve, reject) => {
-        const id = uuidv4();
-        const { name, sku, stock, price, cat, img, attributes } = item;
-        db.run(
-            `INSERT INTO inventory (id, name, sku, stock, price, cat, img, attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, name, sku, stock, price, cat, img, JSON.stringify(attributes || {})],
-            function (err) {
-                if (err) reject(err);
-                else resolve({ id, ...item });
-            }
-        );
-    });
-};
-
-export const updateItem = (id: string, updates: Partial<InventoryItem>): Promise<InventoryItem | null> => {
-    return new Promise((resolve, reject) => {
-        // Construct dynamic UPDATE query
-        const keys = Object.keys(updates);
-        if (keys.length === 0) return resolve(null);
-
-        const setClause = keys.map(key => `${key} = ?`).join(', ');
-        const values = Object.values(updates).map(val =>
-            (typeof val === 'object' && val !== null) ? JSON.stringify(val) : val
-        );
-
-        db.run(
-            `UPDATE inventory SET ${setClause} WHERE id = ?`,
-            [...values, id],
-            function (err) {
-                if (err) reject(err);
-                else if (this.changes === 0) resolve(null);
-                else {
-                    // Return full updated item
-                    db.get(`SELECT * FROM inventory WHERE id = ?`, [id], (err, row: any) => {
-                        if (err) reject(err);
-                        else resolve({
-                            ...row,
-                            attributes: row.attributes ? JSON.parse(row.attributes) : {}
-                        } as InventoryItem);
-                    });
-                }
-            }
-        );
-    });
-};
-
-export const deleteItem = (id: string): Promise<boolean> => {
-    return new Promise((resolve, reject) => {
-        db.run(`DELETE FROM inventory WHERE id = ?`, [id], function (err) {
-            if (err) reject(err);
-            else resolve(this.changes > 0);
-        });
-    });
-};
-
-export const addTransaction = (transaction: Transaction): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        const { itemId, type, qty, price, vendor, description } = transaction;
-        const id = uuidv4();
-        db.run('INSERT INTO transactions (id, type, itemId, qty, price, vendor, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [id, type, itemId, qty, price, vendor, description],
-            (err) => {
-                if (err) reject(err);
-                else resolve();
-            }
-        );
-    });
-};
-
-export const getVendors = (): Promise<string[]> => {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT DISTINCT vendor FROM transactions WHERE vendor IS NOT NULL AND vendor != ''", (err, rows: any[]) => {
-            if (err) reject(err);
-            else {
-                resolve(rows.map(r => r.vendor));
-            }
-        });
-    });
-};
-
-export const getTransactions = (itemId?: string): Promise<Transaction[]> => {
-    return new Promise((resolve, reject) => {
-        let query = "SELECT * FROM transactions";
-        const params: any[] = [];
-
-        if (itemId) {
-            query += " WHERE itemId = ?";
-            params.push(itemId);
+export const addItem = async (item: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
+    const { name, sku, stock, price, cat, img, attributes } = item;
+    const newItem = await prisma.inventory.create({
+        data: {
+            name,
+            sku,
+            stock,
+            price,
+            cat,
+            img,
+            attributes: JSON.stringify(attributes || {})
         }
+    });
+    return {
+        ...newItem,
+        attributes: newItem.attributes ? JSON.parse(newItem.attributes) : {}
+    };
+};
 
-        query += " ORDER BY date DESC";
+export const updateItem = async (id: string, updates: Partial<InventoryItem>): Promise<InventoryItem | null> => {
+    // Process updates to match Prisma schema
+    const data: any = { ...updates };
+    if (updates.attributes) {
+        data.attributes = JSON.stringify(updates.attributes);
+    }
 
-        db.all(query, params, (err, rows: any[]) => {
-            if (err) reject(err);
-            else resolve(rows as Transaction[]);
+    try {
+        const updatedItem = await prisma.inventory.update({
+            where: { id },
+            data
         });
+        return {
+            ...updatedItem,
+            attributes: updatedItem.attributes ? JSON.parse(updatedItem.attributes) : {}
+        };
+    } catch (error) {
+        // Record to update not found
+        return null;
+    }
+};
+
+export const deleteItem = async (id: string): Promise<boolean> => {
+    try {
+        await prisma.inventory.delete({
+            where: { id }
+        });
+        return true;
+    } catch (error) {
+        return false;
+    }
+};
+
+export const addTransaction = async (transaction: Transaction): Promise<void> => {
+    const { itemId, type, qty, price, vendor, description } = transaction;
+    // Ensure price is stored as string in DB but number here? Schema says String.
+    await prisma.transaction.create({
+        data: {
+            type,
+            itemId,
+            qty,
+            price: String(price),
+            vendor: vendor || null,
+            description: description || null
+        }
     });
 };
 
-export const clearTransactions = (): Promise<number> => {
-    return new Promise((resolve, reject) => {
-        db.run("DELETE FROM transactions", function (err) {
-            if (err) reject(err);
-            else resolve(this.changes);
-        });
+export const getVendors = async (): Promise<string[]> => {
+    const results = await prisma.transaction.findMany({
+        where: {
+            vendor: {
+                not: null
+            }
+        },
+        distinct: ['vendor'],
+        select: {
+            vendor: true
+        }
     });
+    // Filter out nulls explicitly if TS complains, though query handles it
+    return results.map(r => r.vendor as string).filter(Boolean);
+};
+
+export const getTransactions = async (itemId?: string): Promise<Transaction[]> => {
+    const where = itemId ? { itemId } : {};
+    const transactions = await prisma.transaction.findMany({
+        where,
+        orderBy: {
+            date: 'desc'
+        }
+    });
+
+    return transactions.map(t => ({
+        id: t.id,
+        type: t.type as 'IN' | 'OUT',
+        itemId: t.itemId,
+        qty: t.qty,
+        price: Number(t.price),
+        vendor: t.vendor || undefined,
+        date: t.date.toISOString(),
+        description: t.description || undefined
+    }));
+};
+
+export const clearTransactions = async (): Promise<number> => {
+    const result = await prisma.transaction.deleteMany();
+    return result.count;
 };
 
 // --- User Operations ---
 
-export const findUser = (email: string): Promise<User | undefined> => {
-    return new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM users WHERE email = ?`, [email], (err, row) => {
-            if (err) reject(err);
-            else resolve(row as User);
-        });
+export const findUser = async (email: string): Promise<User | undefined> => {
+    const user = await prisma.user.findUnique({
+        where: { email }
     });
+    if (!user) return undefined;
+    return {
+        ...user,
+        role: user.role as 'admin' | 'manager' | 'staff'
+    };
 };
 
-export const createUser = (user: Omit<User, 'id'>): Promise<User> => {
-    return new Promise((resolve, reject) => {
-        const id = uuidv4();
-        const { email, password, name, role } = user;
-        db.run(
-            `INSERT INTO users (id, email, password, name, role) VALUES (?, ?, ?, ?, ?)`,
-            [id, email, password, name, role],
-            function (err) {
-                if (err) reject(err);
-                else resolve({ id, email, password, name, role });
-            }
-        );
+export const createUser = async (user: Omit<User, 'id'>): Promise<User> => {
+    const newUser = await prisma.user.create({
+        data: user
     });
+    return {
+        ...newUser,
+        role: newUser.role as 'admin' | 'manager' | 'staff'
+    };
 };
