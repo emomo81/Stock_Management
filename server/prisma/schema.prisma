@@ -3,11 +3,44 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id    String @id @default(uuid())
-  email String @unique
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+
+  @@map("users")
+}
+
+model Inventory {
+  id         String   @id @default(uuid())
+  name       String
+  sku        String   @unique
+  stock      Int
+  price      String
+  cat        String
+  img        String
+  attributes String?  // Stored as JSON string
+  createdAt  DateTime @default(now())
+
+  @@map("inventory")
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  type        String
+  itemId      String
+  qty         Int
+  price       String
+  vendor      String?
+  date        DateTime @default(now())
+  description String?
+
+  @@map("transactions")
 }
