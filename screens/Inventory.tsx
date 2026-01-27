@@ -23,6 +23,8 @@ const MOCK_HISTORY = [
     { date: 'Aug 02, 2023', action: 'Product Created', detail: 'Initial SKU generation', user: 'Admin', type: 'system' },
 ];
 
+import { API_URL } from '../config';
+
 const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, initialSearch }) => {
     const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
