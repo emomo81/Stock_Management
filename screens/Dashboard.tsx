@@ -70,6 +70,8 @@ interface DashboardProps {
   showForecasting?: boolean;
 }
 
+import { API_URL } from '../config';
+
 const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false }) => {
   /* const [showAlert, setShowAlert] = useState(true); */
 

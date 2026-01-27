@@ -63,7 +63,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
     // Fetch history when item is selected
     useEffect(() => {
         if (selectedItem?.id) {
-            fetch(`http://localhost:5001/api/transactions?itemId=${selectedItem.id}`)
+            fetch(`${API_URL}/api/transactions?itemId=${selectedItem.id}`)
                 .then(res => res.json())
                 .then(data => {
                     if (Array.isArray(data)) {
@@ -149,7 +149,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
                 img: 'box'
             }));
 
-            const res = await fetch('http://localhost:5001/api/inventory/batch', {
+            const res = await fetch('${API_URL}/api/inventory/batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -176,7 +176,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
 
     const fetchItems = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/inventory');
+            const res = await fetch('${API_URL}/api/inventory');
             const data = await res.json();
             setItems(data);
             setLoading(false);
@@ -189,7 +189,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this item?')) return;
         try {
-            await fetch(`http://localhost:5001/api/inventory/${id}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/api/inventory/${id}`, { method: 'DELETE' });
             fetchItems();
         } catch (error) {
             console.error('Failed to delete item:', error);
@@ -203,7 +203,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
 
             if (selectedItem) {
                 // Update
-                await fetch(`http://localhost:5001/api/inventory/${selectedItem.id}`, {
+                await fetch(`${API_URL}/api/inventory/${selectedItem.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -214,7 +214,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
                 });
             } else {
                 // Create
-                await fetch('http://localhost:5001/api/inventory', {
+                await fetch('${API_URL}/api/inventory', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
