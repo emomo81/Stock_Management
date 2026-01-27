@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL } from './config';
 import Sidebar from './components/Sidebar';
 import Dashboard from './screens/Dashboard';
 import Inventory from './screens/Inventory';
@@ -27,7 +28,7 @@ const App: React.FC = () => {
       setUserRole(userData.role);
     }
 
-    fetch('http://localhost:5001/api/health')
+    fetch(`${API_URL}/api/health`)
       .then(res => res.json())
       .then(data => console.log('Backend connection:', data))
       .catch(err => console.error('Backend connection detailed error:', err));
@@ -198,7 +199,7 @@ const App: React.FC = () => {
               parallax={true}
             />
           </div>
-          
+
           <div className="relative z-10 w-full h-full flex flex-col">
             {currentView === 'dashboard' && <Dashboard setView={handleSetView} />}
             {currentView === 'forecasting' && <Dashboard setView={handleSetView} showForecasting={true} />}
