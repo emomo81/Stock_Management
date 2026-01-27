@@ -1,7 +1,7 @@
 {
     "name": "stock-management-server",
     "version": "1.0.0",
-    "description": "Backend for Stock Management App",
+    "description": "Backend for Stock Management App - Deployed",
     "main": "dist/index.js",
     "scripts": {
         "start": "node dist/index.js",
