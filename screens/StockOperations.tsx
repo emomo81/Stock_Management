@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { View } from '../types';
+import { API_URL } from '../config';
 
 // TypeScript Interfaces
 interface InventoryItem {
@@ -102,7 +103,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
         // Fetch Inventory (Critical)
         try {
-            const itemsRes = await fetch('http://localhost:5001/api/inventory');
+            const itemsRes = await fetch(`${API_URL}/api/inventory`);
             if (!itemsRes.ok) throw new Error(`HTTP error! status: ${itemsRes.status}`);
             const itemsData = await itemsRes.json();
 
@@ -123,8 +124,8 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
         // Fetch History (Non-Critical)
         try {
             const [vendorsRes, transRes] = await Promise.all([
-                fetch('http://localhost:5001/api/vendors'),
-                fetch('http://localhost:5001/api/transactions')
+                fetch(`${API_URL}/api/vendors`),
+                fetch(`${API_URL}/api/transactions`)
             ]);
 
             const vendorsData = await vendorsRes.json();
@@ -210,7 +211,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
             const addedQty = parseInt(stockInQty);
             const newStock = currentStock + addedQty;
 
-            await fetch(`http://localhost:5001/api/inventory/${selectedStockItem.id}`, {
+            await fetch(`${API_URL}/api/inventory/${selectedStockItem.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -222,7 +223,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
             });
 
             // Save Transaction History
-            await fetch('http://localhost:5001/api/transactions', {
+            await fetch(`${API_URL}/api/transactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -244,8 +245,8 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
             // Refresh Data
             const [itemsRes, vendorsRes] = await Promise.all([
-                fetch('http://localhost:5001/api/inventory'),
-                fetch('http://localhost:5001/api/vendors')
+                fetch(`${API_URL}/api/inventory`),
+                fetch(`${API_URL}/api/vendors`)
             ]);
             setItems(await itemsRes.json());
             setVendors(await vendorsRes.json());
@@ -271,7 +272,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
             const diff = physical - current;
 
             // Update Stock
-            await fetch(`http://localhost:5001/api/inventory/${auditSelectedItem.id}`, {
+            await fetch(`${API_URL}/api/inventory/${auditSelectedItem.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -283,7 +284,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
 
             // Create Transaction Record (Audit Adjustment)
             if (diff !== 0) {
-                await fetch('http://localhost:5001/api/transactions', {
+                await fetch(`${API_URL}/api/transactions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -303,7 +304,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
             setAuditSearch('');
 
             // Refresh Data
-            const res = await fetch('http://localhost:5001/api/inventory');
+            const res = await fetch(`${API_URL}/api/inventory`);
             const data = await res.json();
             setItems(data);
 
@@ -383,7 +384,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
                     const originalItem = items.find(i => i.id === item.id);
                     if (originalItem) {
                         const newStock = (originalItem.stock || 0) - item.qty;
-                        const res = await fetch(`http://localhost:5001/api/inventory/${item.id}`, {
+                        const res = await fetch(`${API_URL}/api/inventory/${item.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -397,7 +398,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
                 }
 
                 // 2. Create Transaction
-                const transRes = await fetch('http://localhost:5001/api/transactions', {
+                const transRes = await fetch(`${API_URL}/api/transactions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

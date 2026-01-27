@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { View, UserRole } from '../types';
+import { API_URL } from '../config';
 
 // Data Export View Component
 const DataExportView: React.FC = () => {
@@ -28,7 +29,7 @@ const DataExportView: React.FC = () => {
 
             // Fetch inventory/products if selected
             if (selectedSets['All Products'] || selectedSets['Low Stock']) {
-                const itemsRes = await fetch('http://localhost:5001/api/inventory');
+                const itemsRes = await fetch(`${API_URL}/api/inventory`);
                 if (itemsRes.ok) {
                     const items = await itemsRes.json();
                     if (selectedSets['All Products']) {
@@ -42,7 +43,7 @@ const DataExportView: React.FC = () => {
 
             // Fetch transactions if selected
             if (selectedSets['Transaction Logs']) {
-                const txRes = await fetch('http://localhost:5001/api/transactions');
+                const txRes = await fetch(`${API_URL}/api/transactions`);
                 if (txRes.ok) {
                     exportData.transactions = await txRes.json();
                 }
@@ -50,7 +51,7 @@ const DataExportView: React.FC = () => {
 
             // Fetch profit data if selected
             if (selectedSets['Profit Reports']) {
-                const statsRes = await fetch('http://localhost:5001/api/stats/analytics');
+                const statsRes = await fetch(`${API_URL}/api/stats/analytics`);
                 if (statsRes.ok) {
                     exportData.profitAnalytics = await statsRes.json();
                 }
@@ -350,7 +351,7 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
 
         try {
             // In a real app, this would query by barcode. Here we'll search inventory by SKU or Name
-            const res = await fetch('http://localhost:5001/api/inventory');
+            const res = await fetch(`${API_URL}/api/inventory`);
             if (res.ok) {
                 const items: InventoryItem[] = await res.json();
                 // Simulating a scan by matching SKU partial or name or checking if the scanned code contains the SKU
@@ -385,7 +386,7 @@ const MobileScannerView: React.FC<{ setView: (view: View) => void }> = ({ setVie
                 : Math.max(0, scannedItem.qty - qty);
 
             // Using the inventory endpoint to update
-            const res = await fetch(`http://localhost:5001/api/inventory/${scannedItem.id}`, {
+            const res = await fetch(`${API_URL}/api/inventory/${scannedItem.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...scannedItem, qty: newQty })
@@ -600,7 +601,7 @@ const BarcodesView: React.FC = () => {
 
     const fetchItems = async () => {
         try {
-            const res = await fetch('http://localhost:5001/api/inventory');
+            const res = await fetch(`${API_URL}/api/inventory`);
             if (res.ok) {
                 const data = await res.json();
                 setItems(data);

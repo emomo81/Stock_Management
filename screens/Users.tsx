@@ -17,7 +17,7 @@ const Users: React.FC = () => {
         const token = localStorage.getItem('token');
 
         try {
-            const res = await fetch('http://localhost:5001/api/auth/create-user', {
+            const res = await fetch(`${API_URL}/api/auth/create-user`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

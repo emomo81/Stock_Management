@@ -8,6 +8,8 @@ interface AuthProps {
   setIsAuth: (auth: boolean) => void;
 }
 
+import { API_URL } from '../config';
+
 const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('password123');
@@ -20,7 +22,7 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     containerRef.current.style.setProperty('--mouse-x', `${x}px`);
     containerRef.current.style.setProperty('--mouse-y', `${y}px`);
   };
@@ -31,7 +33,7 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:5001/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -55,33 +57,33 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen w-full bg-[#060010] flex items-center justify-center relative overflow-hidden font-sans text-white"
       onMouseMove={handleMouseMove}
     >
       {/* Laser Flow Background */}
       <div className="absolute inset-0 z-0 pointer-events-auto">
-         <LaserFlow
-           horizontalBeamOffset={0}
-           verticalBeamOffset={-0.4}
-           color="#CF9EFF"
-           horizontalSizing={0.5}
-           verticalSizing={2}
-           wispDensity={1}
-           wispSpeed={15}
-           wispIntensity={5}
-           flowSpeed={0.35}
-           flowStrength={0.25}
-           fogIntensity={0.45}
-           fogScale={0.3}
-           fogFallSpeed={0.6}
-           decay={1.1}
-           falloffStart={1.2}
-         />
+        <LaserFlow
+          horizontalBeamOffset={0}
+          verticalBeamOffset={-0.4}
+          color="#CF9EFF"
+          horizontalSizing={0.5}
+          verticalSizing={2}
+          wispDensity={1}
+          wispSpeed={15}
+          wispIntensity={5}
+          flowSpeed={0.35}
+          flowStrength={0.25}
+          fogIntensity={0.45}
+          fogScale={0.3}
+          fogFallSpeed={0.6}
+          decay={1.1}
+          falloffStart={1.2}
+        />
       </div>
 
       {/* Dot Pattern Background - Bottom Area */}
-      <div 
+      <div
         className="absolute bottom-0 left-0 right-0 top-[40%] z-0 opacity-20 pointer-events-none"
         style={{
           backgroundImage: 'radial-gradient(#a5b4fc 1px, transparent 1px)',
@@ -93,15 +95,15 @@ const Auth: React.FC<AuthProps> = ({ setView, setIsAuth }) => {
 
       <div className="relative z-10 w-full max-w-md px-4" ref={containerRef}>
         <div className="glass-panel rounded-2xl p-8 border-t border-white/10 shadow-2xl backdrop-blur-xl bg-surface/40 relative group overflow-hidden">
-           {/* Reveal Effect Border */}
-           <div 
-             className="absolute inset-0 rounded-2xl border-2 border-[#CF9EFF] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-             style={{
-               maskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
-               WebkitMaskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
-             }}
-           />
-           
+          {/* Reveal Effect Border */}
+          <div
+            className="absolute inset-0 rounded-2xl border-2 border-[#CF9EFF] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+            style={{
+              maskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
+              WebkitMaskImage: `radial-gradient(300px circle at var(--mouse-x) var(--mouse-y), white, transparent)`,
+            }}
+          />
+
           <div className="flex flex-col items-center text-center mb-8 relative z-10">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-400 shadow-lg shadow-primary/25">
               <span className="material-symbols-outlined text-4xl text-white">inventory_2</span>

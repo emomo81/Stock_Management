@@ -95,7 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
     try {
       setError(null);
       setLoading(true);
-      const res = await fetch('http://localhost:5001/api/stats');
+      const res = await fetch(`${API_URL}/api/stats`);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       setDashboardData(data);
@@ -112,8 +112,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
       setForecastLoading(true);
       setError(null);
       const url = itemId
-        ? `http://localhost:5001/api/stats/forecasting?itemId=${itemId}`
-        : 'http://localhost:5001/api/stats/forecasting';
+        ? `${API_URL}/api/stats/forecasting?itemId=${itemId}`
+        : `${API_URL}/api/stats/forecasting`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();

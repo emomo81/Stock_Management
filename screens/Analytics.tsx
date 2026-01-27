@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { UserRole } from '../types';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { API_URL } from '../config';
 
 interface AnalyticsProps {
     userRole: UserRole;
@@ -54,7 +55,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
         try {
             setLoading(true);
             setError(null);
-            const res = await fetch('http://localhost:5001/api/stats/analytics');
+            const res = await fetch(`${API_URL}/api/stats/analytics`);
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             setAnalyticsData(data);

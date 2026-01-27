@@ -149,7 +149,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
                 img: 'box'
             }));
 
-            const res = await fetch('${API_URL}/api/inventory/batch', {
+            const res = await fetch(`${API_URL}/api/inventory/batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -176,7 +176,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
 
     const fetchItems = async () => {
         try {
-            const res = await fetch('${API_URL}/api/inventory');
+            const res = await fetch(`${API_URL}/api/inventory`);
             const data = await res.json();
             setItems(data);
             setLoading(false);
@@ -214,7 +214,7 @@ const Inventory: React.FC<InventoryProps> = ({ view, userRole, initialFilter, in
                 });
             } else {
                 // Create
-                await fetch('${API_URL}/api/inventory', {
+                await fetch(`${API_URL}/api/inventory`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
