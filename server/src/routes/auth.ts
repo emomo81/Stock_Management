@@ -1,10 +1,23 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { createUser, findUser } from '../store';
+import { createUser, findUser, updateUserPassword } from '../store';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_123';
+
+// Middleware to check for any valid logged-in user
+const verifyToken = (req: any, res: any, next: any) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
+    try {
+        req.user = jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+};
 
 // Middleware to check if user is Admin
 const verifyAdmin = (req: any, res: any, next: any) => {
@@ -72,6 +85,39 @@ router.post('/create-user', verifyAdmin, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'Error creating user' });
+    }
+});
+
+// Authenticated route for a user to change their own password
+router.patch('/change-password', verifyToken, async (req: any, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (newPassword.length < 8) {
+        return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+
+    try {
+        const user = await findUser(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        await updateUserPassword(user.id, hashedPassword);
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Error updating password' });
     }
 });
 

@@ -173,3 +173,10 @@ export const createUser = async (user: Omit<User, 'id'>): Promise<User> => {
         role: newUser.role as 'admin' | 'manager' | 'staff'
     };
 };
+
+export const updateUserPassword = async (id: string, hashedPassword: string): Promise<void> => {
+    await prisma.user.update({
+        where: { id },
+        data: { password: hashedPassword }
+    });
+};
