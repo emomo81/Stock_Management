@@ -75,6 +75,7 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
     const [showStockInSuccess, setShowStockInSuccess] = useState(false);
     const [showStockSuggestions, setShowStockSuggestions] = useState(false);
     const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
+    const [reorderSuggestion, setReorderSuggestion] = useState<{ suggestedQty: number; aiGenerated: boolean } | null>(null);
 
     // Audit State
     const [auditSearch, setAuditSearch] = useState('');
@@ -192,6 +193,24 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
     useEffect(() => {
         fetchData();
     }, [view, fetchData]);
+
+    // Fetch a real, data-driven reorder suggestion for the selected item.
+    useEffect(() => {
+        if (!selectedStockItem) {
+            setReorderSuggestion(null);
+            return;
+        }
+        let cancelled = false;
+        fetch(`${API_URL}/api/ai/reorder/${selectedStockItem.id}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (!cancelled && data) {
+                    setReorderSuggestion({ suggestedQty: data.suggestedQty, aiGenerated: data.aiGenerated });
+                }
+            })
+            .catch(err => console.error('Failed to fetch reorder suggestion:', err));
+        return () => { cancelled = true; };
+    }, [selectedStockItem]);
 
     const filteredStockItems = items.filter(item =>
         item.name.toLowerCase().includes(stockInSearch.toLowerCase()) ||
@@ -1248,7 +1267,12 @@ const StockOperations: React.FC<StockOperationsProps> = ({ view, addNotification
                                         className="w-full bg-[#1b2127] border border-[#3b4754] text-white rounded-lg h-10 px-3 focus:border-primary outline-none"
                                         min="1"
                                     />
-                                    <div className="text-xs text-primary mt-1 flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">info</span> AI Suggests: +500</div>
+                                    {reorderSuggestion && reorderSuggestion.suggestedQty > 0 && (
+                                        <div className="text-xs text-primary mt-1 flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[10px]">info</span>
+                                            {reorderSuggestion.aiGenerated ? 'AI Suggests' : 'Suggests'}: +{reorderSuggestion.suggestedQty}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-xs text-[#9cabba] mb-1">Unit Cost</label>

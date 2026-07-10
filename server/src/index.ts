@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 5001;
 import inventoryRoutes from './routes/inventory';
 import statsRoutes from './routes/stats';
 import authRoutes from './routes/auth';
+import aiRoutes from './routes/ai';
 
 app.use(cors());
 app.use(express.json());
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {

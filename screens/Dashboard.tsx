@@ -70,6 +70,13 @@ interface DashboardProps {
   showForecasting?: boolean;
 }
 
+interface AiInsight {
+  title: string;
+  message: string;
+  recommendations: string[];
+  aiGenerated: boolean;
+}
+
 import { API_URL } from '../config';
 
 const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false }) => {
@@ -77,6 +84,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [forecastingData, setForecastingData] = useState<ForecastingData | null>(null);
+  const [aiInsight, setAiInsight] = useState<AiInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
       fetchForecasting();
     } else {
       fetchStats();
+      fetchAiInsight();
     }
   }, [showForecasting]);
 
@@ -104,6 +113,17 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
       console.error('Failed to fetch stats:', err);
       setError('Failed to load dashboard data. Please check your connection.');
       setLoading(false);
+    }
+  };
+
+  const fetchAiInsight = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/ai/insights`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      setAiInsight(data);
+    } catch (err) {
+      console.error('Failed to fetch AI insight:', err);
     }
   };
 
@@ -393,7 +413,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView, showForecasting = false 
             {[
               { label: 'Total SKUs', value: stats.totalSKUs, change: '+12%', color: 'text-white', icon: 'inventory_2', iconColor: 'text-white' },
               { label: 'Low Stock', value: stats.lowStock, change: 'Action Needed', color: 'text-white', icon: 'warning', iconColor: 'text-orange-400', badgeColor: 'bg-orange-400/10 text-orange-400' },
-              { label: 'AI Insights', value: '12', change: '3 New', color: 'text-white', icon: 'auto_awesome', iconColor: 'text-purple-400', badgeColor: 'bg-purple-400/10 text-purple-400' },
+              { label: 'AI Insights', value: String(aiInsight?.recommendations.length ?? 0), change: aiInsight?.aiGenerated ? 'AI-Powered' : 'Rule-based', color: 'text-white', icon: 'auto_awesome', iconColor: 'text-purple-400', badgeColor: 'bg-purple-400/10 text-purple-400' },
               { label: 'Total Value', value: stats.totalValue, change: '+0.8%', color: 'text-white', icon: 'attach_money', iconColor: 'text-emerald-400', badgeColor: 'bg-emerald-400/10 text-emerald-400' },
             ].map((stat, i) => (
               <div key={i} className="glass-panel p-5 rounded-xl flex flex-col gap-1 relative overflow-hidden group hover:border-white/20 transition-all cursor-pointer" onClick={() => i === 2 && setView('forecasting')}>

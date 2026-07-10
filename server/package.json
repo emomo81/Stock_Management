@@ -4,7 +4,7 @@
     "description": "Backend for Stock Management App - Deployed",
     "main": "dist/index.js",
     "scripts": {
-        "start": "node dist/index.js",
+        "start": "prisma migrate deploy && node dist/index.js",
         "dev": "nodemon src/index.ts",
         "build": "tsc",
         "postinstall": "prisma generate"
@@ -13,6 +13,7 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@google/generative-ai": "^0.24.1",
         "@prisma/client": "^5.22.0",
         "@types/bcryptjs": "^2.4.6",
         "@types/cors": "^2.8.19",
