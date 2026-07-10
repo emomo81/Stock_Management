@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: env.VITE_API_PROXY_TARGET || 'http://localhost:5001',
           changeOrigin: true,
           secure: false,
         },
@@ -27,10 +27,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [react()],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

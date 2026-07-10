@@ -1,11 +1,14 @@
 import express from 'express';
-import { getItems } from '../store';
+import { getItems, getTransactions } from '../store';
+import { computeUnitsSold, computeTrendPct, computeDaysSinceLastSale, computeForecast, getItemPrice } from '../services/analytics';
+import { getInventoryInsight } from '../services/insights';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
     try {
         const items = await getItems();
+        const transactions = await getTransactions();
 
         // Calculate Stats
         const totalSKUs = items.length;
@@ -14,48 +17,63 @@ router.get('/', async (req, res) => {
 
         // Calculate Total Value
         const totalValue = items.reduce((acc, item) => {
-            const price = parseFloat(item.price.replace('$', '').replace(',', ''));
+            const price = getItemPrice(item.price);
             return acc + (price * item.stock);
         }, 0);
 
-        // Mock Chart Data (Static for now, but could be randomized or stored)
-        const chartData = [
-            { name: 'Sep 15', value: 100, forecast: 100, critical: 50 },
-            { name: 'Sep 22', value: 90, forecast: 90, critical: 50 },
-            { name: 'Sep 29', value: 75, forecast: 75, critical: 50 },
-            { name: 'Oct 06', value: 50, forecast: 50, critical: 50 },
-            { name: 'Oct 13', value: null, forecast: 35, critical: 50 },
-            { name: 'Oct 24', value: null, forecast: 10, critical: 50 },
-            { name: 'Nov 07', value: null, forecast: 0, critical: 50 },
-        ];
+        // Aggregate stock-value trend for the last 4 weeks plus a 3-week forward projection,
+        // based on real transaction velocity rather than fabricated numbers.
+        const totalDailyVelocityValue = items.reduce((sum, item) => {
+            const price = getItemPrice(item.price);
+            return sum + computeUnitsSold(item.id, transactions, 30) / 30 * price;
+        }, 0);
+        const chartData = [];
+        for (let week = -3; week <= 3; week++) {
+            const date = new Date();
+            date.setDate(date.getDate() + week * 7);
+            const projected = Math.max(0, totalValue - totalDailyVelocityValue * week * 7);
+            chartData.push({
+                name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                value: week <= 0 ? Math.round(projected) : null,
+                forecast: Math.round(projected),
+                critical: Math.round(totalValue * 0.15),
+            });
+        }
 
-        // Dynamic Fast Movers (Simulated based on stock levels for now)
-        // In a real app, this would come from a Sales/Orders database
+        // Fast Movers - real units sold and trend from OUT transactions in the last 30 days.
         const fastMovers = items
-            .filter(item => item.stock < 50) // Simulate "moving fast" if stock is low
+            .map(item => ({ item, sold: computeUnitsSold(item.id, transactions, 30) }))
+            .filter(({ sold }) => sold > 0)
+            .sort((a, b) => b.sold - a.sold)
             .slice(0, 5)
-            .map((item, index) => ({
-                rank: `0${index + 1}`,
-                name: item.name,
-                sku: item.sku,
-                stock: item.stock,
-                sold: Math.floor(Math.random() * 1000) + 100, // Simulated sales count
-                trend: `+${Math.floor(Math.random() * 30)}%`, // Simulated trend
-                color: ['emerald', 'blue', 'purple', 'amber', 'rose'][index % 5]
-            }));
+            .map(({ item, sold }, index) => {
+                const trendPct = computeTrendPct(item.id, transactions, 30);
+                return {
+                    rank: `0${index + 1}`,
+                    name: item.name,
+                    sku: item.sku,
+                    stock: item.stock,
+                    sold,
+                    trend: `${trendPct >= 0 ? '+' : ''}${trendPct}%`,
+                    color: ['emerald', 'blue', 'purple', 'amber', 'rose'][index % 5]
+                };
+            });
 
-        // Dead Stock - items with high stock that aren't moving (simulated as high stock items)
+        // Dead Stock - items with stock on hand that haven't sold in 30+ days (or never sold).
+        const inventoryValue = (item: { price: string; stock: number }) => getItemPrice(item.price) * item.stock;
         const deadStock = items
-            .filter(item => item.stock > 30) // Items with high stock
+            .map(item => ({ item, daysSinceLastSale: computeDaysSinceLastSale(item.id, transactions) }))
+            .filter(({ item, daysSinceLastSale }) => item.stock > 0 && (daysSinceLastSale === null || daysSinceLastSale > 30))
+            .sort((a, b) => inventoryValue(b.item) - inventoryValue(a.item))
             .slice(0, 5)
-            .map((item) => {
-                const price = parseFloat(String(item.price).replace('$', '').replace(',', '')) || 0;
+            .map(({ item, daysSinceLastSale }) => {
+                const price = getItemPrice(item.price);
                 return {
                     name: item.name,
                     sku: item.sku,
                     stock: item.stock,
                     value: (price * item.stock).toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
-                    days: `${Math.floor(Math.random() * 60) + 60} Days` // Simulated days without sale
+                    days: daysSinceLastSale === null ? 'Never sold' : `${daysSinceLastSale} Days`
                 };
             });
 
@@ -79,6 +97,7 @@ router.get('/', async (req, res) => {
 router.get('/forecasting', async (req, res) => {
     try {
         const items = await getItems();
+        const transactions = await getTransactions();
 
         if (items.length === 0) {
             return res.json({
@@ -99,37 +118,24 @@ router.get('/forecasting', async (req, res) => {
         }
 
         // Calculate forecasting data
-        const price = parseFloat(String(selectedItem.price).replace('$', '').replace(',', '')) || 0;
+        const price = getItemPrice(selectedItem.price);
         const currentStock = selectedItem.stock;
 
-        // Simulated sales velocity (units per day) - in real app, calculate from transactions
-        const dailyVelocity = Math.max(1, Math.floor(currentStock / 30) + Math.random() * 3);
+        const forecastResult = computeForecast(selectedItem, transactions);
+        const { dailyVelocity, daysUntilStockOut, stockOutDate, reorderQty, confidence } = forecastResult;
 
-        // Calculate stock-out date
-        const daysUntilStockOut = currentStock > 0 ? Math.floor(currentStock / dailyVelocity) : 0;
-        const stockOutDate = new Date();
-        stockOutDate.setDate(stockOutDate.getDate() + daysUntilStockOut);
-
-        // Recommended reorder quantity (target 30-day supply)
-        const targetDays = 30;
-        const targetStock = Math.ceil(dailyVelocity * targetDays);
-        const reorderQty = Math.max(0, targetStock - currentStock);
-
-        // Confidence score (simulated)
-        const confidence = Math.floor(70 + Math.random() * 25);
-
-        // Generate chart data (weekly intervals)
+        // Generate chart data (weekly intervals): past 2 weeks from real sales history, then projection.
         const chartData = [];
         const now = new Date();
-        for (let week = 0; week < 8; week++) {
+        for (let week = -2; week < 6; week++) {
             const date = new Date(now);
             date.setDate(date.getDate() + (week * 7));
             const projectedStock = Math.max(0, currentStock - (dailyVelocity * week * 7));
 
             chartData.push({
                 name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                value: week < 2 ? Math.max(0, currentStock - (dailyVelocity * week * 7)) : null, // Actual data (past 2 weeks simulated)
-                forecast: projectedStock,
+                value: week <= 0 ? Math.round(projectedStock) : null,
+                forecast: Math.round(projectedStock),
                 critical: Math.min(20, currentStock * 0.2) // Critical threshold
             });
         }
@@ -173,9 +179,6 @@ router.get('/forecasting', async (req, res) => {
 router.get('/analytics', async (req, res) => {
     try {
         const items = await getItems();
-
-        // Import getTransactions dynamically
-        const { getTransactions } = await import('../store');
         const transactions = await getTransactions();
 
         // Calculate revenue and costs from transactions
@@ -257,7 +260,7 @@ router.get('/analytics', async (req, res) => {
         const categoryMap = new Map<string, { revenue: number; items: number }>();
         items.forEach(item => {
             const cat = item.cat || 'Uncategorized';
-            const price = parseFloat(String(item.price).replace('$', '').replace(',', '')) || 0;
+            const price = getItemPrice(item.price);
             const existing = categoryMap.get(cat) || { revenue: 0, items: 0 };
             existing.revenue += price * item.stock;
             existing.items += 1;
@@ -276,14 +279,8 @@ router.get('/analytics', async (req, res) => {
             .sort((a, b) => b.percentage - a.percentage)
             .slice(0, 5);
 
-        // Find top performing item for AI insight
-        const topItem = items
-            .filter(i => i.stock > 0)
-            .sort((a, b) => {
-                const priceA = parseFloat(String(a.price).replace('$', '').replace(',', '')) || 0;
-                const priceB = parseFloat(String(b.price).replace('$', '').replace(',', '')) || 0;
-                return (priceB * b.stock) - (priceA * a.stock);
-            })[0];
+        // AI-powered (Gemini) insight, falling back to deterministic analysis when no API key is set.
+        const insight = await getInventoryInsight(items, transactions);
 
         res.json({
             stats: {
@@ -294,13 +291,7 @@ router.get('/analytics', async (req, res) => {
             },
             profitData,
             categoryBreakdown,
-            insight: {
-                title: topItem ? 'Top Performer' : 'No Data',
-                message: topItem
-                    ? `${topItem.name} (${topItem.sku}) has the highest inventory value.`
-                    : 'Add inventory and transactions to see insights.',
-                sku: topItem?.sku || null
-            }
+            insight
         });
     } catch (error) {
         console.error('Analytics error:', error);

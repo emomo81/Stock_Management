@@ -31,7 +31,9 @@ interface CategoryBreakdown {
 interface Insight {
     title: string;
     message: string;
+    recommendations: string[];
     sku: string | null;
+    aiGenerated: boolean;
 }
 
 interface AnalyticsData {
@@ -181,7 +183,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
     const stats = analyticsData?.stats || { totalRevenue: '$0', grossProfit: '$0', netMargin: '0', totalTransactions: 0 };
     const profitData = analyticsData?.profitData || [];
     const categoryBreakdown = analyticsData?.categoryBreakdown || [];
-    const insight = analyticsData?.insight || { title: 'No Data', message: 'Add transactions to see insights.', sku: null };
+    const insight = analyticsData?.insight || { title: 'No Data', message: 'Add transactions to see insights.', recommendations: [], sku: null, aiGenerated: false };
 
     // Calculate trend (positive if profit > 0)
     const profitTrend = parseFloat(stats.grossProfit.replace(/[^0-9.-]/g, '')) > 0;
@@ -379,24 +381,20 @@ const Analytics: React.FC<AnalyticsProps> = ({ userRole }) => {
                                         <h4 className="text-white font-bold mb-3 flex items-center gap-2">
                                             <span className="material-symbols-outlined text-primary text-lg">lightbulb</span>
                                             Recommendations
+                                            {insight.aiGenerated && (
+                                                <span className="text-[10px] font-bold uppercase text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded ml-auto">AI</span>
+                                            )}
                                         </h4>
                                         <ul className="space-y-2 text-sm text-slate-300">
-                                            <li className="flex items-start gap-2">
-                                                <span className="text-primary mt-0.5">•</span>
-                                                <span>Increase stock for high-margin items to avoid stockouts</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <span className="text-primary mt-0.5">•</span>
-                                                <span>Consider bundling slow-moving items with bestsellers</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <span className="text-primary mt-0.5">•</span>
-                                                <span>Review pricing on items with margins below {stats.netMargin}%</span>
-                                            </li>
-                                            <li className="flex items-start gap-2">
-                                                <span className="text-primary mt-0.5">•</span>
-                                                <span>Track <span className="text-primary font-medium">{insight.sku}</span> performance weekly</span>
-                                            </li>
+                                            {(insight.recommendations.length > 0
+                                                ? insight.recommendations
+                                                : [`Track ${insight.sku} performance weekly to sustain margins.`]
+                                            ).map((rec, i) => (
+                                                <li key={i} className="flex items-start gap-2">
+                                                    <span className="text-primary mt-0.5">•</span>
+                                                    <span>{rec}</span>
+                                                </li>
+                                            ))}
                                         </ul>
                                     </div>
 
